@@ -1,26 +1,36 @@
 spring:
   application:
-    name: EventHub
+    name: AniMeTrackAPI
+
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
 
   datasource:
-    url: jdbc:postgresql://db:5432/EventHubDB
+    url: jdbc:postgresql://localhost:5432/AniMeTrackBD
     username: postgres
     password: 123123
     driver-class-name: org.postgresql.Driver
 
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: create-drop # update
       show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false
+
   mail:
     host: smtp.gmail.com
     port: 587
     username: dimon.2007.17@gmail.com
-    password: hlcpiesnabmuowrv
+    password: hlcp iesn abmu owrv
     protocol: smtp
     properties:
       mail:
@@ -31,6 +41,7 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
+        debug: true
 
   thymeleaf:
     cache: false
@@ -44,11 +55,13 @@ springdoc:
 
 jwt:
   secret-key: NeRealSecretKeyForFreaksAniMeTrackAPIAndAniMeTrackAPP
-  expiration-time: 86400000
+  refresh-expiration-time: 604800000
+  access-expiration-time: 900000
 
 app:
   base-url: http://localhost:8080
   email:
-    sender-name: EventHub
+    sender-name: AniMeTrack
     from: dimon.2007.17@gmail.com
     verification-subject: "Подтверждение email"
+

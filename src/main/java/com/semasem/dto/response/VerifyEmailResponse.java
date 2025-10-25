@@ -8,7 +8,8 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class VerifyEmailResponse {
-    private String token;
+    private String refreshToken;
+    private String accessToken;
     private String name;
     @Email
     private String email;

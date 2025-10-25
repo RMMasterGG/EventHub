@@ -13,5 +13,8 @@ public interface RoomRepository extends JpaRepository<Room, UUID> {
     List<Room> findByOwnerUuid(UUID ownerUuid);
     Optional<Room> findByUuid(UUID roomUuid);
     boolean existsByUuidAndStatus(UUID roomUuid, RoomStatus status);
+    Optional<Room> findByInviteLink(String inviteLink);
+    boolean existsByInviteLink(String inviteLink);
+
 
 }

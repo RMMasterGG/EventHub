@@ -33,6 +33,11 @@ public class WebRTCService {
         Room room = roomRepository.findByUuid(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
+        // Для гостей проверяем срок действия
+        if (user.isGuest() && user.getGuestExpiresAt().isBefore(Instant.now())) {
+            throw new CustomException(ErrorCode.GUEST_EXPIRED, "Guest access has expired");
+        }
+
         // Проверяем активность комнаты
         if (room.getStatus() != RoomStatus.ACTIVE) {
             throw new CustomException(ErrorCode.ROOM_NOT_ACTIVE, "Room is not active");

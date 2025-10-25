@@ -1,5 +1,6 @@
 package com.semasem.config;
 
+import com.semasem.dto.entity.TokenType;
 import com.semasem.service.security.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -40,8 +41,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             final String jwt = authHeader.substring(7);
             logger.info("JWT token: " + jwt);
-            if (!jwtService.isTokenValid(jwt)) {
-                logger.warn("Invalid JWT token");
+            if (!jwtService.isTokenValid(jwt, TokenType.ACCESS_TOKEN)) {
+                logger.warn("Invalid or expired JWT token");
                 filterChain.doFilter(request, response);
                 return;
             }

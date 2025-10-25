@@ -1,16 +1,21 @@
 package com.semasem.service;
 
+import com.semasem.dto.entity.TokenType;
 import com.semasem.dto.exception.CustomException;
 import com.semasem.dto.exception.ErrorCode;
 import com.semasem.dto.mapper.RoomMapper;
 import com.semasem.dto.request.CreateRoomRequest;
 import com.semasem.dto.response.ParticipantResponse;
+import com.semasem.dto.response.RoomJoinResponse;
 import com.semasem.dto.response.RoomResponse;
 import com.semasem.repository.RoomParticipantRepository;
 import com.semasem.repository.RoomRepository;
 import com.semasem.repository.UserRepository;
 import com.semasem.repository.entity.*;
+import com.semasem.service.security.JwtService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.security.Principal;
@@ -21,6 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @AllArgsConstructor
 public class RoomService {
@@ -29,6 +35,7 @@ public class RoomService {
     private final RoomRepository roomRepository;
     private final RoomParticipantRepository roomParticipantRepository;
     private final RoomMapper roomMapper;
+    private final JwtService jwtService;
 
     public RoomResponse createRoom(CreateRoomRequest request, Principal principal) {
         String userEmail = principal.getName();
@@ -203,5 +210,84 @@ public class RoomService {
         response.setJoinedAt(participant.getJoinedAt());
         response.setSessionId(participant.getSessionId());
         return response;
+    }
+
+    public Room findByInviteLink(String inviteLink) {
+        return roomRepository.findByInviteLink(inviteLink)
+                .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND, "Invalid invite link"));
+    }
+
+    public RoomJoinResponse joinByInviteLink(String inviteCode, HttpServletRequest request) {
+        // Находим комнату по invite ссылке
+        Room room = roomRepository.findByInviteLink(inviteCode)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_LINK, "Invalid invite link"));
+
+        String visitorToken = jwtService.generateVisitorToken(
+                room.getUuid().toString(),
+                inviteCode
+        );
+
+        // Проверяем активность комнаты
+        if (room.getStatus() != RoomStatus.ACTIVE) {
+            throw new CustomException(ErrorCode.ROOM_NOT_ACTIVE, "Room is not active");
+        }
+
+        RoomJoinResponse response = new RoomJoinResponse();
+        response.setRoomId(room.getUuid());
+        response.setRoomTitle(room.getTitle());
+        response.setRoomDescription(room.getDescription());
+        response.setAllowGuests(room.isAllowGuests());
+        response.setVisitorToken(visitorToken);
+
+        // Проверяем авторизацию
+        String authHeader = request.getHeader("Authorization");
+        boolean isAuthenticated = authHeader != null && authHeader.startsWith("Bearer ");
+
+        if (isAuthenticated) {
+            // Пользователь авторизован
+            String token = authHeader.substring(7);
+            try {
+                String userEmail = jwtService.extractEmail(token);
+                if (jwtService.isTokenValid(token, TokenType.ACCESS_TOKEN)) {
+                    // Токен валиден - можно присоединить напрямую
+                    response.setRequiresAuth(false);
+                    response.setCanJoinDirectly(true);
+                    response.setDirectJoinToken(generateDirectJoinToken(room.getUuid(), userEmail));
+                    return response;
+                }
+            } catch (Exception e) {
+                // Токен невалиден - требуем авторизацию
+                log.warn("Invalid token in invite link request: {}", e.getMessage());
+            }
+        }
+
+        // Пользователь не авторизован или токен невалиден
+        response.setRequiresAuth(true);
+        response.setCanJoinDirectly(false);
+
+        if (room.isAllowGuests()) {
+            response.setGuestJoinUrl("/api/guest/join?inviteCode=" + inviteCode);
+        }
+
+        response.setAuthUrl("/api/auth/login?redirect=/api/rooms/join/" + inviteCode);
+
+        return response;
+    }
+
+    public RoomResponse directJoin(String inviteCode, Principal principal) {
+        String userEmail = principal.getName();
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        Room room = roomRepository.findByInviteLink(inviteCode)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_LINK));
+
+        // Используем существующий метод joinRoom
+        return joinRoom(room.getUuid(), principal);
+    }
+
+    private String generateDirectJoinToken(UUID roomId, String userEmail) {
+        // Генерируем временный токен для прямого присоединения
+        return jwtService.generateDirectJoinToken(roomId.toString(), userEmail);
     }
 }

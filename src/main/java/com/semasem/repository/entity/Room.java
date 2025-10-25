@@ -46,6 +46,9 @@ public class Room {
     @OneToMany(mappedBy = "room")
     private List<RoomParticipant> participants;
 
+    @Column(name = "allow_guests")
+    private boolean allowGuests = true;
+
     public Room(String title, String description, UUID ownerUuid, boolean isPublic, String inviteLink, int maxParticipants) {
         this.title = title;
         this.description = description;

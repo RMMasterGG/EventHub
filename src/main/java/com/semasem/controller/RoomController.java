@@ -3,10 +3,13 @@ package com.semasem.controller;
 import com.semasem.dto.request.CreateRoomRequest;
 import com.semasem.dto.response.APIResponse;
 import com.semasem.dto.response.ParticipantResponse;
+import com.semasem.dto.response.RoomJoinResponse;
 import com.semasem.dto.response.RoomResponse;
 import com.semasem.service.RoomService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -113,6 +116,33 @@ public class RoomController {
     public ResponseEntity<APIResponse<List<ParticipantResponse>>> getRoomParticipants(@PathVariable UUID roomID, Principal principal) {
         List<ParticipantResponse> response = roomService.getRoomParticipants(roomID, principal);
         return ResponseEntity.ok().body(APIResponse.success("", response));
+    }
+
+    @Operation(
+            summary = "Присоединиться к комнате по invite ссылке",
+            description = "Проверяет invite ссылку и возвращает информацию для присоединения"
+    )
+    @SecurityRequirements
+    @GetMapping("/join/{inviteCode}")
+    public ResponseEntity<APIResponse<RoomJoinResponse>> joinByInviteLink(
+            @PathVariable String inviteCode,
+            HttpServletRequest request) {
+
+        RoomJoinResponse response = roomService.joinByInviteLink(inviteCode, request);
+        return ResponseEntity.ok(APIResponse.success("Room information", response));
+    }
+
+    @Operation(
+            summary = "Прямое присоединение к комнате по invite ссылке",
+            description = "Автоматическое присоединение к комнате для авторизованных пользователей"
+    )
+    @PostMapping("/join/{inviteCode}/direct")
+    public ResponseEntity<APIResponse<RoomResponse>> directJoin(
+            @PathVariable String inviteCode,
+            Principal principal) {
+
+        RoomResponse response = roomService.directJoin(inviteCode, principal);
+        return ResponseEntity.ok(APIResponse.success("Successfully joined the room", response));
     }
 }
 

@@ -5,15 +5,17 @@ import jakarta.validation.constraints.Email;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.time.LocalDate;
+
 @Data
 @AllArgsConstructor
-public class LoginResponse {
-    private String refreshToken;
-    private String accessToken;
+public class UserProfileResponse {
+    private String avatarLink;
     private String name;
     @Email
     private String email;
+    private String phoneNumber;
+    private LocalDate createdAt;
+    private boolean emailVerified;
     private UserRole role;
-
-
 }

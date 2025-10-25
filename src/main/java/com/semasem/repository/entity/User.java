@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -42,6 +43,18 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private UserRole role = UserRole.ROLE_USER;
+
+    @Column
+    private String refreshToken;
+
+    @Column
+    private String avatarLink;
+
+    @Column(name = "is_guest", nullable = false)
+    private boolean isGuest = false;
+
+    @Column(name = "guest_expires_at")
+    private Instant guestExpiresAt;
 
     public User(UUID uuid, String name, String email, String phoneNumber, String password, UserRole role) {
         this.uuid = uuid;

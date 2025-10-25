@@ -130,4 +130,17 @@ public class AuthController {
         log.info("New-Password response: {}", response);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(APIResponse.success("New password successfully!"));
     }
+
+    @Operation(
+            summary = "Создание рефреш токена",
+            description = "Устанавливает новый пароль для аутентифицированного пользователя."
+    )
+    @PostMapping("/refresh")
+    public ResponseEntity<APIResponse<RefreshTokenResponse>> refreshTokenForUser(HttpServletRequest servletRequest) {
+
+        RefreshTokenResponse response = authService.refreshTokenForUser(servletRequest);
+
+        log.info("Refresh response: {}", response);
+        return ResponseEntity.ok().body(APIResponse.success("New refresh token", response));
+    }
 }

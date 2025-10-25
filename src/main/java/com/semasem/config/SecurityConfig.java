@@ -45,7 +45,8 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/auth/me", "/api/auth/profile", "/api/auth/logout", "/api/auth/new-password").authenticated()
+                        .requestMatchers("/api/auth/logout", "/api/auth/new-password").authenticated()
+                        .requestMatchers("/api/user/**").authenticated()
                         .requestMatchers("/api/rooms/**").authenticated()
                         .anyRequest().permitAll()
                 );
