@@ -45,6 +45,7 @@ public class ChatMessage {
     private String replyTo;
 
     @Column
+    @Builder.Default
     private boolean edited = false;
 
     @Column
