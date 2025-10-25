@@ -1,0 +1,30 @@
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/EventHubDB
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=123123
+    depends_on:
+      - db
+    restart: always
+    volumes:
+      - ./application.yml:/app/application.yml
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=EventHubDB
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=123123
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  db_data:

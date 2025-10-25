@@ -18,9 +18,9 @@ public class SwaggerConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("AniMeTrack API")
+                        .title("EventHub API")
                         .version("0.1")
-                        .description("API documentation for AniMeTrack"))
+                        .description("API documentation for EventHub"))
                 .servers(List.of(
                         new Server().url("http://localhost:8080").description("Development Server"),
                         new Server().url("https://api.semasem.com").description("Production Server")
