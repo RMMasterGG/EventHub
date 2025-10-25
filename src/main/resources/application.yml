@@ -1,12 +1,12 @@
 spring:
   application:
-    name: EventHubDB
+    name: AniMeTrackAPI
 
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/EventHubDB
+    url: jdbc:postgresql://localhost:5432/AniMeTrackBD
     username: postgres
     password: 123123
     driver-class-name: org.postgresql.Driver
@@ -55,8 +55,7 @@ springdoc:
 
 jwt:
   secret-key: NeRealSecretKeyForFreaksAniMeTrackAPIAndAniMeTrackAPP
-  refresh-expiration-time: 604800000
-  access-expiration-time: 900000
+  expiration-time: 86400000
 
 app:
   base-url: http://localhost:8080

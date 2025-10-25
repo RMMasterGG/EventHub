@@ -44,7 +44,7 @@ public class User {
     @Column(nullable = false, length = 20)
     private UserRole role = UserRole.ROLE_USER;
 
-    @Column
+    @Column(columnDefinition = "TEXT")
     private String refreshToken;
 
     @Column
