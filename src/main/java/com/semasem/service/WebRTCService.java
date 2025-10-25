@@ -52,12 +52,10 @@ public class WebRTCService {
         Room room = roomRepository.findByUuid(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND, "Room not found"));
 
-        // Для гостей проверяем срок действия
         if (user.isGuest() && user.getGuestExpiresAt().isBefore(Instant.now())) {
             throw new CustomException(ErrorCode.GUEST_EXPIRED, "Guest access has expired");
         }
 
-        // Проверяем активность комнаты
         if (room.getStatus() != RoomStatus.ACTIVE) {
             throw new CustomException(ErrorCode.ROOM_NOT_ACTIVE, "Room is not active");
         }
@@ -80,19 +78,16 @@ public class WebRTCService {
             return true;
         }
 
-        // Публичная комната - доступ всем
         if (room.isPublic()) {
             return true;
         }
 
-        // Проверяем, является ли пользователь активным участником
         return roomParticipantRepository.findByRoomUuidAndUserUuid(room.getUuid(), user.getUuid())
                 .map(participant -> participant.isActive() &&
                         participant.getStatus() == ParticipantStatus.JOINED)
                 .orElse(false);
     }
 
-    // ✅ ВЫНЕС ОБНОВЛЕНИЕ АКТИВНОСТИ В ОТДЕЛЬНЫЙ МЕТОД
     private void updateParticipantActivity(UUID roomId, UUID userUuid) {
         roomParticipantRepository.findByRoomUuidAndUserUuid(roomId, userUuid)
                 .ifPresent(participant -> {

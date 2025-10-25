@@ -9,6 +9,7 @@ import com.semasem.repository.UserRepository;
 import com.semasem.repository.entity.*;
 import com.semasem.service.ChatMessageService;
 import com.semasem.service.RoomSessionService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
+@Tag(
+        name = "",
+        description = ""
+)
 @RequiredArgsConstructor
 public class WebSocketChatController extends TextWebSocketHandler {
 
@@ -31,7 +36,6 @@ public class WebSocketChatController extends TextWebSocketHandler {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
 
-    // Хранилище сессий: roomId -> (userId -> WebSocketSession)
     private final Map<String, Map<String, WebSocketSession>> roomSessions = new ConcurrentHashMap<>();
     private final Map<String, String> userRooms = new ConcurrentHashMap<>();
 
@@ -42,45 +46,46 @@ public class WebSocketChatController extends TextWebSocketHandler {
         String roomId = params.get("roomId");
         String userId = params.get("userId");
 
-        User user = userRepository.findByUuid(UUID.fromString(userId))
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
-
-        log.info("💬 CHAT WebSocket connection attempt - Room: {}, User: {}", roomId, userId);
-
         if (token == null || roomId == null || userId == null) {
-            log.warn("❌ CHAT Invalid connection parameters");
+            log.warn("WebSocket connection rejected - missing parameters");
             sendErrorSafe(session, "Missing required parameters: token, roomId, userId");
             session.close(CloseStatus.BAD_DATA);
             return;
         }
 
         try {
-            UUID roomUuid = UUID.fromString(roomId);
+            User user = userRepository.findByUuid(UUID.fromString(userId))
+                    .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
+            UUID roomUuid = UUID.fromString(roomId);
             Room room = roomRepository.findByUuid(roomUuid)
                     .orElseThrow(() -> new CustomException(ErrorCode.VALIDATION_ERROR));
 
-            // Валидация доступа к комнате
+            Map<String, Object> roomInfo = new HashMap<>();
+            roomInfo.put("type", "room_info");
+            roomInfo.put("roomId", roomId);
+            roomInfo.put("roomName", room.getTitle());
+            roomInfo.put("roomDescription", room.getDescription());
+
+            sendToUserSafe(userId, roomInfo);
+
             if (!validateRoomAccess(roomUuid, userId)) {
+                log.warn("Room access denied for user {} in room {}", userId, roomId);
                 sendErrorSafe(session, "Access denied to room");
                 session.close(CloseStatus.NOT_ACCEPTABLE);
                 return;
             }
 
-            // Регистрируем сессию в комнате
             registerSession(roomId, userId, session);
             userRooms.put(userId, roomId);
 
-            // Отправляем историю чата
             sendChatHistory(roomUuid, userId);
+            broadcastToRoom(roomId, createSystemMessage(user.getName() + " joined the chat", MessageType.JOIN));
 
-            // Уведомляем участников о новом подключении к чату
-            broadcastToRoom(roomId, createSystemMessage(user.getName() + " joined the chat", "USER_JOINED"));
-
-            log.info("✅ CHAT User {} successfully connected to room {}", userId, roomId);
+            log.info("User {} connected to room {}", userId, roomId);
 
         } catch (Exception e) {
-            log.error("❌ CHAT Failed to establish connection", e);
+            log.error("WebSocket connection failed for room {} user {}", roomId, userId, e);
             sendErrorSafe(session, "Failed to join chat: " + e.getMessage());
             session.close(CloseStatus.NOT_ACCEPTABLE);
         }
@@ -92,7 +97,7 @@ public class WebSocketChatController extends TextWebSocketHandler {
         String roomId = userRooms.get(userId);
 
         if (roomId == null) {
-            log.warn("❌ CHAT User {} sent message without active room", userId);
+            log.warn("Message received from user {} without active room", userId);
             sendErrorSafe(session, "No active room");
             return;
         }
@@ -104,15 +109,13 @@ public class WebSocketChatController extends TextWebSocketHandler {
             );
             String type = (String) payload.get("type");
 
-
-
             if (type == null) {
-                log.warn("❌ CHAT Message without type from user {}", userId);
+                log.warn("Message without type from user {}", userId);
                 sendErrorSafe(session, "Message type is required");
                 return;
             }
 
-            log.debug("💬 CHAT Received message type: {} from user: {} in room: {}", type, userId, roomId);
+            log.debug("Processing {} message from user {} in room {}", type, userId, roomId);
 
             User user = userRepository.findByUuid(UUID.fromString(userId))
                     .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
@@ -136,13 +139,16 @@ public class WebSocketChatController extends TextWebSocketHandler {
                 case "read_receipt":
                     handleReadReceipt(roomId, userId, payload);
                     break;
+                case "kick_user":
+                    handleKickUser(roomId, user, payload);
+                    break;
                 default:
-                    log.warn("❌ CHAT Unknown message type: {} from user {}", type, userId);
+                    log.warn("Unknown message type: {} from user {}", type, userId);
                     sendErrorSafe(session, "Unknown message type: " + type);
             }
 
         } catch (Exception e) {
-            log.error("❌ CHAT Error handling message from user {}", userId, e);
+            log.error("Error processing message from user {}", userId, e);
             sendErrorSafe(session, "Error processing message");
         }
     }
@@ -151,9 +157,8 @@ public class WebSocketChatController extends TextWebSocketHandler {
         try {
             String content = (String) payload.get("content");
             String tempId = (String) payload.get("tempId");
-            String replyTo = (String) payload.get("replyTo"); // Get reply target
+            String replyTo = (String) payload.get("replyTo");
 
-            // Валидация сообщения
             if (content == null || content.trim().isEmpty()) {
                 sendErrorSafe(getUserSession(roomId, user.getUuid().toString()), "Message content cannot be empty");
                 return;
@@ -170,31 +175,29 @@ public class WebSocketChatController extends TextWebSocketHandler {
             Room room = roomRepository.findByUuid(UUID.fromString(roomId))
                     .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
-            // Создание и сохранение сообщения
             ChatMessage chatMessage = ChatMessage.builder()
                     .room(room)
                     .user(user)
                     .content(content)
                     .type(MessageType.TEXT)
                     .timestamp(Instant.now())
-                    .replyTo(replyTo) // Сохраняем ID сообщения, на которое отвечаем
+                    .replyTo(replyTo)
                     .edited(false)
                     .build();
 
             ChatMessage savedMessage = chatMessageService.saveMessage(chatMessage);
 
-            // Подготовка данных для рассылки
             Map<String, Object> messageData = new HashMap<>();
             messageData.put("messageId", savedMessage.getUuid().toString());
             messageData.put("tempId", tempId);
             messageData.put("content", savedMessage.getContent());
-            messageData.put("senderId", user.getUuid().toString()); // Отправляем ID вместо имени
+            messageData.put("senderId", user.getUuid().toString());
+            messageData.put("senderName", user.getName());
             messageData.put("timestamp", savedMessage.getTimestamp().toEpochMilli());
             messageData.put("type", "chat_message");
             messageData.put("edited", savedMessage.isEdited());
             messageData.put("replyTo", savedMessage.getReplyTo());
 
-            // Если это ответ на сообщение, добавляем информацию о нем
             if (replyTo != null) {
                 Optional<ChatMessage> repliedMessageOpt = chatMessageService.getMessage(UUID.fromString(replyTo));
                 if (repliedMessageOpt.isPresent()) {
@@ -204,13 +207,12 @@ public class WebSocketChatController extends TextWebSocketHandler {
                 }
             }
 
-            // Рассылка сообщения всем участникам комнаты
             broadcastToRoom(roomId, messageData);
 
-            log.debug("💬 CHAT Message saved and broadcasted from user {} in room {}", user.getUuid(), roomId);
+            log.debug("Message broadcasted from user {} in room {}", user.getUuid(), roomId);
 
         } catch (Exception e) {
-            log.error("❌ CHAT Error handling chat message", e);
+            log.error("Error handling chat message in room {}", roomId, e);
             sendErrorSafe(getUserSession(roomId, user.getUuid().toString()), "Failed to send message");
         }
     }
@@ -227,7 +229,6 @@ public class WebSocketChatController extends TextWebSocketHandler {
 
             newContent = filterContent(newContent.trim());
 
-            // Поиск и обновление сообщения
             Optional<ChatMessage> messageOpt = chatMessageService.getMessage(UUID.fromString(messageId));
             if (messageOpt.isEmpty()) {
                 sendErrorSafe(getUserSession(roomId, userId), "Message not found");
@@ -238,34 +239,30 @@ public class WebSocketChatController extends TextWebSocketHandler {
             User currentUser = userRepository.findByUuid(UUID.fromString(userId))
                     .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
-            // 🔐 ПРОВЕРКА ПРАВ НА РЕДАКТИРОВАНИЕ
             if (!hasEditPermission(message, currentUser, roomId)) {
                 sendErrorSafe(getUserSession(roomId, userId), "Not authorized to edit this message");
                 return;
             }
 
-            // Обновление сообщения
             message.setContent(newContent);
             message.setEdited(true);
             message.setEditedAt(Instant.now());
 
             ChatMessage updatedMessage = chatMessageService.saveMessage(message);
 
-            // Рассылка обновления
             Map<String, Object> updateData = new HashMap<>();
             updateData.put("messageId", updatedMessage.getUuid().toString());
             updateData.put("content", updatedMessage.getContent());
             updateData.put("edited", true);
             updateData.put("editedAt", updatedMessage.getEditedAt().toEpochMilli());
             updateData.put("editedBy", userId);
-            updateData.put("editedByName", currentUser.getName());
 
             broadcastToRoom(roomId, createMessage("message_edited", updateData));
 
-            log.info("✏️ CHAT Message {} edited by user {}", messageId, userId);
+            log.info("Message {} edited by user {}", messageId, userId);
 
         } catch (Exception e) {
-            log.error("❌ CHAT Error editing message", e);
+            log.error("Error editing message {}", payload.get("messageId"), e);
             sendErrorSafe(getUserSession(roomId, userId), "Failed to edit message");
         }
     }
@@ -289,123 +286,152 @@ public class WebSocketChatController extends TextWebSocketHandler {
             User currentUser = userRepository.findByUuid(UUID.fromString(userId))
                     .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
-            // 🔐 ПРОВЕРКА ПРАВ НА УДАЛЕНИЕ
             if (!hasDeletePermission(message, currentUser, roomId)) {
                 sendErrorSafe(getUserSession(roomId, userId), "Not authorized to delete this message");
                 return;
             }
 
-            // Удаление сообщения
             chatMessageService.deleteMessage(UUID.fromString(messageId));
 
-            // Рассылка уведомления об удалении
             Map<String, Object> deleteData = new HashMap<>();
             deleteData.put("messageId", messageId);
             deleteData.put("deletedBy", userId);
-            deleteData.put("deletedByName", currentUser.getName());
 
             broadcastToRoom(roomId, createMessage("message_deleted", deleteData));
 
-            log.info("🗑️ CHAT Message {} deleted by user {}", messageId, userId);
+            log.info("Message {} deleted by user {}", messageId, userId);
 
         } catch (Exception e) {
-            log.error("❌ CHAT Error deleting message", e);
+            log.error("Error deleting message {}", payload.get("messageId"), e);
             sendErrorSafe(getUserSession(roomId, userId), "Failed to delete message");
         }
     }
 
-    // ========== 🔐 МЕТОДЫ ПРОВЕРКИ ПРАВ ==========
-
-    /**
-     * Проверяет права на редактирование сообщения
-     * Могут редактировать:
-     * 1. Автор сообщения
-     * 2. Владелец комнаты
-     * 3. Co-host комнаты
-     * 4. Администраторы
-     */
     private boolean hasEditPermission(ChatMessage message, User currentUser, String roomId) {
-        // 1. Автор сообщения
         if (message.getUser().getUuid().equals(currentUser.getUuid())) {
             return true;
         }
-
-        // 2. Владелец комнаты, Co-host или Админ
         return hasModeratorPermission(currentUser, roomId);
     }
 
-    /**
-     * Проверяет права на удаление сообщения
-     * Могут удалять:
-     * 1. Автор сообщения
-     * 2. Владелец комнаты
-     * 3. Co-host комнаты
-     * 4. Администраторы
-     */
     private boolean hasDeletePermission(ChatMessage message, User currentUser, String roomId) {
-        // 1. Автор сообщения
         if (message.getUser().getUuid().equals(currentUser.getUuid())) {
             return true;
         }
-
-        // 2. Владелец комнаты, Co-host или Админ
         return hasModeratorPermission(currentUser, roomId);
     }
 
-    /**
-     * Проверяет права модератора (владелец, co-host, админ)
-     */
     private boolean hasModeratorPermission(User user, String roomId) {
         try {
             UUID roomUuid = UUID.fromString(roomId);
-
-            // Проверяем роль пользователя в комнате
             Optional<RoomParticipant> participantOpt = roomSessionService.getParticipant(roomUuid, user.getUuid());
 
             if (participantOpt.isPresent()) {
                 RoomParticipant participant = participantOpt.get();
                 ParticipantRole role = participant.getRole();
-
-                // Владелец комнаты, Co-host или Админ могут модераить
                 return role == ParticipantRole.HOST ||
                         role == ParticipantRole.CO_HOST ||
                         user.getRole() == UserRole.ROLE_ADMIN;
             }
 
-            // Если пользователь не участник комнаты, проверяем только админские права
             return user.getRole() == UserRole.ROLE_ADMIN;
 
         } catch (Exception e) {
-            log.error("❌ CHAT Error checking moderator permissions for user {} in room {}", user.getUuid(), roomId, e);
+            log.error("Error checking moderator permissions for user {} in room {}", user.getUuid(), roomId, e);
             return false;
         }
     }
-
-    // ========== ОСТАЛЬНЫЕ МЕТОДЫ (без изменений) ==========
 
     private void handleTypingEvent(String roomId, String userId, boolean isTyping) {
         Map<String, Object> typingData = new HashMap<>();
         typingData.put("userId", userId);
         typingData.put("isTyping", isTyping);
-
-        // Рассылка уведомления о наборе текста (всем кроме отправителя)
         broadcastToRoomExceptUser(roomId, userId, createMessage("user_typing", typingData));
     }
 
     private void handleReadReceipt(String roomId, String userId, Map<String, Object> payload) {
         String messageId = (String) payload.get("messageId");
-
         if (messageId != null) {
-            // Обновление статуса прочтения сообщения
             chatMessageService.markMessageAsRead(UUID.fromString(messageId), userId);
-
             Map<String, Object> receiptData = new HashMap<>();
             receiptData.put("messageId", messageId);
             receiptData.put("readBy", userId);
             receiptData.put("readAt", System.currentTimeMillis());
-
-            // Рассылка уведомления о прочтении
             broadcastToRoom(roomId, createMessage("message_read", receiptData));
+        }
+    }
+
+    private void handleKickUser(String roomID, User user, Map<String, Object> payload) {
+        String userID = user.getUuid().toString();
+        try {
+
+            String targetUserId = (String) payload.get("targetUserId");
+
+            if (targetUserId == null) {
+                sendErrorSafe(getUserSession(roomID, userID), "targetUserId is required");
+                return;
+            }
+
+            if (!hasKickPermission(user, roomID)) {
+                sendErrorSafe(getUserSession(roomID, userID), ErrorCode.HAVE_NOT_PERMISSION.getMessage());
+                return;
+            }
+
+            if (userID.equals(targetUserId)) {
+                sendErrorSafe(getUserSession(roomID, userID), "Cannot kick yourself");
+                return;
+            }
+
+            WebSocketSession targetSession = getUserSession(roomID, targetUserId);
+
+            if (targetSession != null && targetSession.isOpen()) {
+                Map<String, Object> kickMessage = new HashMap<>();
+                kickMessage.put("type", MessageType.KICKED);
+                kickMessage.put("reason", "You have been kicked from the room");
+                kickMessage.put("kickedBy", userID);
+                kickMessage.put("timestamp", System.currentTimeMillis());
+
+                sendToUserSafe(targetUserId, kickMessage);
+
+                try {
+                    targetSession.close(CloseStatus.NORMAL.withReason("Kicked from room"));
+                } catch (IOException e) {
+                    log.warn("Error closing session for kicked user {}", targetUserId, e);
+                }
+
+                unregisterSession(roomID, targetUserId);
+                userRooms.remove(targetUserId);
+
+                Map<String, Object> notification = createSystemMessage(
+                        "User " + targetUserId + " was kicked by " + userID,
+                        MessageType.KICKED
+                );
+
+                broadcastToRoomExceptUser(roomID, targetUserId, notification);
+            } else {
+                sendErrorSafe(getUserSession(roomID, userID), "User not found in room");
+            }
+        } catch (Exception e) {
+            log.error("Error kicking user from room {}", roomID, e);
+            sendErrorSafe(getUserSession(roomID, userID), "Failed to kick user");
+        }
+    }
+
+    private boolean hasKickPermission(User user, String roomID) {
+        try {
+            UUID roomUUID = UUID.fromString(roomID);
+            RoomParticipant participant = roomSessionService.getParticipant(roomUUID, user.getUuid())
+                    .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
+
+            ParticipantRole role = participant.getRole();
+
+            return role == ParticipantRole.HOST ||
+                    role == ParticipantRole.CO_HOST ||
+                    user.getRole() == UserRole.ROLE_ADMIN;
+
+        } catch (Exception e) {
+            log.error("Error checking kick permissions for user {} in room {}", user.getUuid(), roomID, e);
+            return false;
         }
     }
 
@@ -415,20 +441,17 @@ public class WebSocketChatController extends TextWebSocketHandler {
         String roomId = userRooms.get(userId);
 
         if (roomId != null && userId != null) {
-            log.info("💬 CHAT User {} disconnected from room {}, status: {}", userId, roomId, status);
+            log.info("User {} disconnected from room {}, status: {}", userId, roomId, status);
 
             try {
                 User user = userRepository.findByUuid(UUID.fromString(userId))
                         .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
-
-                // Уведомляем об уходе из чата
                 broadcastToRoomExceptUserSafe(roomId, userId,
-                        createSystemMessage(user.getName() + " left the chat", "USER_LEFT"));
+                        createSystemMessage(user.getName() + " left the chat", MessageType.LEAVE));
             } catch (Exception e) {
-                log.warn("💬 CHAT Could not send leave notification for user {}", userId);
+                log.debug("Could not send leave notification for user {}", userId);
             }
 
-            // Удаляем сессию
             unregisterSession(roomId, userId);
             userRooms.remove(userId);
         }
@@ -437,7 +460,7 @@ public class WebSocketChatController extends TextWebSocketHandler {
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
         String userId = getUserIdFromSession(session);
-        log.error("❌ CHAT Transport error for user {}", userId, exception);
+        log.error("Transport error for user {}", userId, exception);
 
         String roomId = userRooms.get(userId);
         if (roomId != null) {
@@ -445,8 +468,6 @@ public class WebSocketChatController extends TextWebSocketHandler {
             userRooms.remove(userId);
         }
     }
-
-    // ========== ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ==========
 
     private void registerSession(String roomId, String userId, WebSocketSession session) {
         roomSessions.computeIfAbsent(roomId, k -> new ConcurrentHashMap<>()).put(userId, session);
@@ -470,10 +491,9 @@ public class WebSocketChatController extends TextWebSocketHandler {
     private void sendChatHistory(UUID roomId, String userId) {
         try {
             List<ChatMessage> messages = chatMessageService.getRoomMessages(roomId, 100);
-
             List<Map<String, Object>> messageList = new ArrayList<>();
+
             for (ChatMessage message : messages) {
-                // ✅ УБЕДИТЕСЬ, что user загружен (не LAZY)
                 User messageUser = message.getUser();
                 if (messageUser == null) {
                     log.warn("Message {} has null user", message.getUuid());
@@ -502,7 +522,7 @@ public class WebSocketChatController extends TextWebSocketHandler {
             sendToUserSafe(userId, createMessage("chat_history", historyData));
 
         } catch (Exception e) {
-            log.error("❌ CHAT Error sending chat history to user {}", userId, e);
+            log.error("Error sending chat history to user {}", userId, e);
         }
     }
 
@@ -535,19 +555,18 @@ public class WebSocketChatController extends TextWebSocketHandler {
                         brokenSessions.add(userId);
                     }
                 } catch (IOException e) {
-                    log.warn("💬 CHAT Error broadcasting to user {}, marking as broken", userId);
+                    log.warn("Error broadcasting to user {}, marking as broken", userId);
                     brokenSessions.add(userId);
                 }
             }
         }
 
-        // Очищаем битые сессии
         for (String brokenUserId : brokenSessions) {
             unregisterSession(roomId, brokenUserId);
             userRooms.remove(brokenUserId);
         }
 
-        log.debug("💬 CHAT Safe broadcast to {} users in room {}", sentCount, roomId);
+        log.debug("Broadcast to {} users in room {}", sentCount, roomId);
     }
 
     private void sendToUserSafe(String userId, Map<String, Object> message) {
@@ -559,7 +578,7 @@ public class WebSocketChatController extends TextWebSocketHandler {
                     String jsonMessage = objectMapper.writeValueAsString(message);
                     session.sendMessage(new TextMessage(jsonMessage));
                 } catch (IOException e) {
-                    log.error("❌ CHAT Error sending message to user {}", userId, e);
+                    log.error("Error sending message to user {}", userId, e);
                     unregisterSession(roomId, userId);
                     userRooms.remove(userId);
                 }
@@ -575,7 +594,7 @@ public class WebSocketChatController extends TextWebSocketHandler {
                 String jsonError = objectMapper.writeValueAsString(errorMessage);
                 session.sendMessage(new TextMessage(jsonError));
             } catch (Exception e) {
-                log.debug("💬 CHAT Could not send error message", e);
+                log.debug("Could not send error message", e);
             }
         }
     }
@@ -587,7 +606,7 @@ public class WebSocketChatController extends TextWebSocketHandler {
         return message;
     }
 
-    private Map<String, Object> createSystemMessage(String content, String systemType) {
+    private Map<String, Object> createSystemMessage(String content, MessageType systemType) {
         Map<String, Object> messageData = new HashMap<>();
         messageData.put("content", content);
         messageData.put("systemType", systemType);
@@ -614,31 +633,15 @@ public class WebSocketChatController extends TextWebSocketHandler {
         return params.get("userId");
     }
 
-    // ========== ЗАГЛУШКИ ДЛЯ СЕРВИСОВ ==========
-
     private boolean validateRoomAccess(UUID roomId, String userId) {
-        // TODO: Реализовать проверку доступа к комнате
         return true;
     }
 
     private String filterContent(String content) {
-        // TODO: Реализовать фильтрацию запрещенного контента
         String[] forbiddenWords = {"spam", "badword"};
         for (String word : forbiddenWords) {
             content = content.replaceAll("(?i)" + word, "***");
         }
         return content;
-    }
-
-    private Room createRoomProxy(String roomId) {
-        Room room = new Room();
-        room.setUuid(UUID.fromString(roomId));
-        return room;
-    }
-
-    private User createUserProxy(String userId) {
-        User user = new User();
-        user.setUuid(UUID.fromString(userId));
-        return user;
     }
 }

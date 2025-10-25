@@ -8,10 +8,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class WebRTCSignal {
-    private String type; // "WEBRTC_SIGNAL"
+    private String type;
     private String roomId;
     private String sender;
     private String target;
     private Object data;
-    private String signalType; // "offer", "answer", "candidate"
+    private String signalType;
 }

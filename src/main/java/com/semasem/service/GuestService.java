@@ -31,28 +31,22 @@ public class GuestService {
 
     @Transactional
     public GuestJoinResponse joinAsGuest(GuestJoinRequest request) {
-        // Находим комнату по invite link
         Room room = roomRepository.findByInviteLink(request.getRoomInviteLink())
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND, "Invalid invite link"));
 
-        // Проверяем, разрешен ли гостевой доступ
         if (!room.isPublic()) {
             throw new CustomException(ErrorCode.ACCESS_DENIED, "Guest access not allowed for this room");
         }
 
-        // Создаем временного гостевого пользователя
         User guestUser = createGuestUser(request.getGuestName());
         User savedGuest = userRepository.save(guestUser);
 
-        // Генерируем токены
         String accessToken = jwtService.generateToken(savedGuest, TokenType.ACCESS_TOKEN);
         String refreshToken = jwtService.generateToken(savedGuest, TokenType.REFRESH_TOKEN);
 
-        // Сохраняем refresh token
         savedGuest.setRefreshToken(refreshToken);
         userRepository.save(savedGuest);
 
-        // Автоматически присоединяем гостя к комнате
         Principal guestPrincipal = savedGuest::getEmail;
         roomService.joinRoom(room.getUuid(), guestPrincipal);
 
@@ -66,11 +60,11 @@ public class GuestService {
         User guest = new User();
         guest.setName(guestName);
         guest.setEmail(generateGuestEmail());
-        guest.setPassword(UUID.randomUUID().toString()); // случайный пароль
+        guest.setPassword(UUID.randomUUID().toString());
         guest.setGuest(true);
         guest.setGuestExpiresAt(Instant.now().plusSeconds(60 * 60 * 24));
         guest.setRole(UserRole.ROLE_GUEST);
-        guest.setEmailVerified(true); // гостям не нужна верификация email
+        guest.setEmailVerified(true);
         guest.setCreatedAt(java.time.LocalDate.now());
 
         return guest;

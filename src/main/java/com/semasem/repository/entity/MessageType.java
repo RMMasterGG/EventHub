@@ -5,5 +5,6 @@ public enum MessageType {
     SYSTEM,
     JOIN,
     LEAVE,
+    KICKED,
     FILE
 }

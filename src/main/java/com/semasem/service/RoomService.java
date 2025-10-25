@@ -72,16 +72,6 @@ public class RoomService {
         Room room = roomRepository.findByUuid(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
-        // Доступ имеют: владелец, участники комнаты, или если комната публичная
-//        boolean hasAccess = room.isPublic() ||
-//                room.getOwnerUuid().equals(user.getUuid()) ||
-//                roomParticipantRepository.existsByRoomUuidAndUserUuidAndStatus(
-//                        roomId, user.getUuid(), ParticipantStatus.JOINED);
-
-//        if (!hasAccess) {
-//            throw new CustomException(ErrorCode.ACCESS_DENIED);
-//        }
-
         return new RoomResponse(room.getUuid(), room.getTitle(), room.getDescription(), room.getInviteLink());
     }
 
@@ -90,18 +80,15 @@ public class RoomService {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // Возвращаем комнаты где пользователь владелец ИЛИ участник
         List<Room> ownedRooms = roomRepository.findByOwnerUuid(user.getUuid());
         List<Room> participatedRooms = roomRepository.findRoomsWhereUserIsParticipant(user.getUuid());
 
         List<RoomResponse> roomResponses = new ArrayList<>();
 
-        // Добавляем комнаты владельца
         for (Room room : ownedRooms) {
             roomResponses.add(RoomResponse.fromEntity(room));
         }
 
-        // Добавляем комнаты где пользователь участник
         for (Room room : participatedRooms) {
             roomResponses.add(RoomResponse.fromEntity(room));
         }
@@ -135,7 +122,6 @@ public class RoomService {
         Room room = roomRepository.findByUuid(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
-        // Проверяем доступ к комнате
         boolean canJoin = room.isPublic() || room.getOwnerUuid().equals(user.getUuid());
         if (!canJoin) {
             throw new CustomException(ErrorCode.ACCESS_DENIED, "No access to join this room");
@@ -198,16 +184,6 @@ public class RoomService {
         Room room = roomRepository.findByUuid(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
-        // Доступ к участникам имеют: владелец, участники комнаты, или если комната публичная
-//        boolean hasAccess = room.isPublic() ||
-//                room.getOwnerUuid().equals(currentUser.getUuid()) ||
-//                roomParticipantRepository.existsByRoomUuidAndUserUuidAndStatus(
-//                        roomId, currentUser.getUuid(), ParticipantStatus.JOINED);
-//
-//        if (!hasAccess) {
-//            throw new CustomException(ErrorCode.ACCESS_DENIED, "No access to this room's participants");
-//        }
-
         List<RoomParticipant> activeParticipants = roomParticipantRepository
                 .findByRoomUuidAndStatus(roomId, ParticipantStatus.JOINED);
 
@@ -241,13 +217,11 @@ public class RoomService {
                     User user = userRepository.findByEmail(userEmail)
                             .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND, "User not found"));
 
-                    // ✅ ГАРАНТИРУЕМ ДОБАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯ В КОМНАТУ
                     RoomParticipant participant = roomParticipantRepository
                             .findByRoomAndUser(room, user)
                             .orElse(null);
 
                     if (participant == null) {
-                        // Создаём новую запись участника
                         participant = RoomParticipant.builder()
                                 .room(room)
                                 .user(user)
@@ -261,13 +235,11 @@ public class RoomService {
                                 .lastActiveAt(Instant.now())
                                 .build();
                     } else {
-                        // Обновляем существующую запись
                         participant.setStatus(ParticipantStatus.JOINED);
                         participant.setJoinedAt(Instant.now());
                         participant.setLeftAt(null);
                         participant.setLastActiveAt(Instant.now());
 
-                        // Если пользователь был забанен, снимаем бан
                         if (participant.getStatus() == ParticipantStatus.BANNED) {
                             participant.setStatus(ParticipantStatus.JOINED);
                         }
@@ -282,11 +254,9 @@ public class RoomService {
                 }
             } catch (Exception e) {
                 log.warn("Invalid token in invite link request: {}", e.getMessage());
-                // Продолжаем как неавторизованный пользователь
             }
         }
 
-        // Логика для неавторизованных пользователей
         response.setRequiresAuth(true);
         response.setCanJoinDirectly(false);
 

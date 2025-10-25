@@ -20,11 +20,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        // WebRTC endpoint
         registry.addHandler(webRTCController, "/api/ws/webrtc")
                 .setAllowedOriginPatterns("*");
 
-        // Chat endpoint
         registry.addHandler(webSocketChatController, "/api/ws/chat")
                 .setAllowedOriginPatterns("*");
 

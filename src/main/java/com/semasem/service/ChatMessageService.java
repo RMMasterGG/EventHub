@@ -34,6 +34,5 @@ public class ChatMessageService {
     }
 
     public void markMessageAsRead(UUID messageId, String userId) {
-        // TODO: Реализовать логику отметки прочтения
     }
 }

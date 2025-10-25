@@ -1,5 +1,6 @@
 package com.semasem.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.semasem.service.RoomSessionService;
 import com.semasem.service.WebRTCService;
@@ -47,20 +48,15 @@ public class WebRTCController extends TextWebSocketHandler {
         try {
             UUID roomUuid = UUID.fromString(roomId);
 
-            // Валидируем доступ к комнате
             webRTCService.validateRoomAccess(roomUuid, () -> userId);
 
-            // Сохраняем сессию
             sessions.put(userId, session);
             userRooms.put(userId, roomId);
 
-            // Добавляем в активные участники
             roomSessionService.addParticipant(roomUuid, userId);
 
-            // Уведомляем о новом участнике
             broadcastToRoom(roomId, createMessage("new_peer", Map.of("userId", userId)));
 
-            // Отправляем текущий список участников новому пользователю
             sendParticipantsList(roomUuid, userId);
 
             log.info("User {} successfully connected to room {}", userId, roomId);
@@ -69,7 +65,6 @@ public class WebRTCController extends TextWebSocketHandler {
             log.error("Failed to establish WebSocket connection for user {} to room {}",
                     userId, roomId, e);
 
-            // Отправляем сообщение об ошибке перед закрытием (если сессия еще открыта)
             sendErrorSafe(session, "Failed to join room: " + e.getMessage());
 
             session.close(CloseStatus.NOT_ACCEPTABLE);
@@ -88,7 +83,10 @@ public class WebRTCController extends TextWebSocketHandler {
         }
 
         try {
-            Map<String, Object> payload = objectMapper.readValue(message.getPayload(), Map.class);
+            Map<String, Object> payload = objectMapper.readValue(
+                    message.getPayload(),
+                    new TypeReference<Map<String, Object>>() {}
+            );
             String type = (String) payload.get("type");
 
             if (type == null) {
@@ -187,10 +185,9 @@ public class WebRTCController extends TextWebSocketHandler {
 
     private void handlePeerLeft(String roomId, String userId) {
         log.info("User {} explicitly left room {}", userId, roomId);
-        // Уведомляем об уходе участника
+
         broadcastToRoomSafe(roomId, createMessage("peer_left", Map.of("userId", userId)));
 
-        // Удаляем из активных участников
         try {
             UUID roomUuid = UUID.fromString(roomId);
             roomSessionService.removeParticipant(roomUuid, userId);
@@ -198,7 +195,6 @@ public class WebRTCController extends TextWebSocketHandler {
             log.error("Error removing participant from room", e);
         }
 
-        // Закрываем сессию
         cleanupUserSession(userId);
     }
 
@@ -211,10 +207,8 @@ public class WebRTCController extends TextWebSocketHandler {
             log.info("User {} connection closed from room {}, status: {}",
                     userId, roomId, status);
 
-            // Уведомляем об уходе участника
             broadcastToRoomSafe(roomId, createMessage("peer_left", Map.of("userId", userId)));
 
-            // Удаляем из активных участников
             try {
                 UUID roomUuid = UUID.fromString(roomId);
                 roomSessionService.removeParticipant(roomUuid, userId);
