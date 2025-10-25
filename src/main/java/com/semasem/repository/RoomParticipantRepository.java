@@ -1,18 +1,16 @@
 package com.semasem.repository;
 
-import com.semasem.repository.entity.ParticipantStatus;
-import com.semasem.repository.entity.Room;
-import com.semasem.repository.entity.RoomParticipant;
-import com.semasem.repository.entity.User;
+import com.semasem.repository.entity.*;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
+@Repository
 public interface RoomParticipantRepository extends JpaRepository<RoomParticipant, Long> {
 
     // Найти всех активных участников комнаты
@@ -50,4 +48,20 @@ public interface RoomParticipantRepository extends JpaRepository<RoomParticipant
     Optional<RoomParticipant> findByRoomAndUser(Room room, User user);
     boolean existsByRoomAndUserAndStatus(Room room, User user, ParticipantStatus status);
 
+    // Получить RoomParticipant с eagerly загруженными связями
+    @Query("SELECT rp FROM RoomParticipant rp " +
+            "JOIN FETCH rp.user " +
+            "JOIN FETCH rp.room " +
+            "WHERE rp.room.uuid = :roomUuid")
+    List<RoomParticipant> findByRoomUuidWithDetails(@Param("roomUuid") UUID roomUuid);
+
+    // Получить конкретного участника с eagerly загруженными связями
+    @Query("SELECT rp FROM RoomParticipant rp " +
+            "JOIN FETCH rp.user " +
+            "JOIN FETCH rp.room " +
+            "WHERE rp.room.uuid = :roomUuid AND rp.user.uuid = :userUuid")
+    Optional<RoomParticipant> findByRoomAndUserWithDetails(@Param("roomUuid") UUID roomUuid,
+                                                           @Param("userUuid") UUID userUuid);
+    
+    List<RoomParticipant> findByRoom_Uuid(UUID roomUuid);
 }

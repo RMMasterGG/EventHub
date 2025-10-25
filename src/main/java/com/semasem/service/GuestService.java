@@ -36,9 +36,9 @@ public class GuestService {
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND, "Invalid invite link"));
 
         // Проверяем, разрешен ли гостевой доступ
-        if (!room.isPublic()) {
-            throw new CustomException(ErrorCode.ACCESS_DENIED, "Guest access not allowed for this room");
-        }
+//        if (!room.isPublic()) {
+//            throw new CustomException(ErrorCode.ACCESS_DENIED, "Guest access not allowed for this room");
+//        }
 
         // Создаем временного гостевого пользователя
         User guestUser = createGuestUser(request.getGuestName());

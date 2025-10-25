@@ -48,13 +48,14 @@ public class SecurityConfig {
                                 "/api/auth/verify-email",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/error"
+                                "/error",
+                                "/api/rooms/**"
                         ).permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/auth/logout", "/api/auth/new-password").authenticated()
                         .requestMatchers("/api/user/**").authenticated()
-                        .requestMatchers("/api/rooms/**").authenticated()
+//                        .requestMatchers("/api/rooms/**").authenticated()
                         .anyRequest().permitAll()
                 );
 
