@@ -25,6 +25,7 @@ public enum ErrorCode {
 
     GUEST_ACCESS_DENIED("GUESS_001", "Guest access not allowed"),
     GUEST_EXPIRED("GUESS_002","Guest access has expired"),
+    GUESTS_NOT_ALLOWED("GUESS_003","Guest access has not allowed"),
 
     INVALID_INPUT("CHAT_001", "Неверные данные"),
     MESSAGE_NOT_FOUND("CHAT_002", "Сообщение не найдено"),

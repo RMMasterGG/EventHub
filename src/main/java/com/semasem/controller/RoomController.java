@@ -34,94 +34,61 @@ public class RoomController {
 
     private final RoomService roomService;
 
-    @Operation(
-            summary = "Создание новой комнаты",
-            description = "Создает новую комнату для видеоконференций. " +
-                    "Пользователь автоматически становится владельцем комнаты."
-    )
+    @Operation(summary = "Создание новой комнаты")
     @PostMapping
     public ResponseEntity<APIResponse<RoomResponse>> createRoom(@RequestBody @Valid CreateRoomRequest request, Principal principal) {
         log.info("Create Room request: {}", request);
-
         RoomResponse response = roomService.createRoom(request, principal);
-
         log.debug("Create Room response {}", response);
         return ResponseEntity.status(HttpStatus.CREATED).body(APIResponse.success("", response));
     }
 
-    @Operation(
-            summary = "Получение информации о комнате",
-            description = "Возвращает детальную информацию о конкретной комнате по её ID."
-    )
+    @Operation(summary = "Получение информации о комнате")
     @GetMapping("/{roomID}")
     public ResponseEntity<APIResponse<RoomResponse>> getRoom(@PathVariable UUID roomID, Principal principal) {
-
         RoomResponse response = roomService.getRoom(roomID, principal);
-
         log.debug("Get Room response {}", response);
         return ResponseEntity.ok().body(APIResponse.success("", response));
     }
 
-    @Operation(
-            summary = "Получение списка комнат пользователя",
-            description = "Возвращает все комнаты, в которых пользователь является участником или владельцем."
-    )
+    @Operation(summary = "Получение списка комнат пользователя")
     @GetMapping("/my-rooms")
     public ResponseEntity<APIResponse<List<RoomResponse>>> getUserRooms(Principal principal) {
-
         List<RoomResponse> response = roomService.getUserRooms(principal);
-
         log.debug("Get User Room response {}", response);
         return ResponseEntity.ok().body(APIResponse.success("", response));
     }
 
-    @Operation(
-            summary = "Удаление комнаты",
-            description = "Удаляет комнату. Только владелец комнаты может её удалить."
-    )
+    @Operation(summary = "Удаление комнаты")
     @DeleteMapping("/{roomID}")
     public ResponseEntity<APIResponse<RoomResponse>> deleteRoom(@PathVariable UUID roomID, Principal principal) {
-
         RoomResponse response = roomService.deleteRoom(roomID, principal);
-
         log.debug("Delete Room response {}", response);
         return ResponseEntity.ok().body(APIResponse.success("", response));
     }
 
-    @Operation(
-            summary = "Присоединение к комнате",
-            description = "Присоединяет пользователя к комнате для участия в видеоконференции."
-    )
+    @Operation(summary = "Присоединение к комнате")
     @PostMapping("/{roomID}/join")
     public ResponseEntity<APIResponse<RoomResponse>> joinRoom(@PathVariable UUID roomID, Principal principal) {
         RoomResponse response = roomService.joinRoom(roomID, principal);
         return ResponseEntity.ok().body(APIResponse.success("Successfully joined the room", response));
     }
 
-    @Operation(
-            summary = "Выход из комнаты",
-            description = "Покидает комнату и завершает участие в видеоконференции."
-    )
+    @Operation(summary = "Выход из комнаты")
     @PostMapping("/{roomID}/leave")
     public ResponseEntity<APIResponse<Void>> leaveRoom(@PathVariable UUID roomID, Principal principal) {
         roomService.leaveRoom(roomID, principal);
         return ResponseEntity.ok().body(APIResponse.success("Successfully left the room"));
     }
 
-    @Operation(
-            summary = "Получить участников комнаты",
-            description = "Возвращает список активных участников комнаты."
-    )
+    @Operation(summary = "Получить участников комнаты")
     @GetMapping("/{roomID}/participants")
     public ResponseEntity<APIResponse<List<ParticipantResponse>>> getRoomParticipants(@PathVariable UUID roomID, Principal principal) {
         List<ParticipantResponse> response = roomService.getRoomParticipants(roomID, principal);
         return ResponseEntity.ok().body(APIResponse.success("", response));
     }
 
-    @Operation(
-            summary = "Присоединиться к комнате по invite ссылке",
-            description = "Проверяет invite ссылку и возвращает информацию для присоединения"
-    )
+    @Operation(summary = "Присоединение по invite ссылке")
     @SecurityRequirements
     @GetMapping("/join/{inviteCode}")
     public ResponseEntity<APIResponse<RoomJoinResponse>> joinByInviteLink(
@@ -129,20 +96,27 @@ public class RoomController {
             HttpServletRequest request) {
 
         RoomJoinResponse response = roomService.joinByInviteLink(inviteCode, request);
-        return ResponseEntity.ok(APIResponse.success("Room information", response));
+        return ResponseEntity.ok().body(APIResponse.success("", response));
     }
 
-    @Operation(
-            summary = "Прямое присоединение к комнате по invite ссылке",
-            description = "Автоматическое присоединение к комнате для авторизованных пользователей"
-    )
-    @PostMapping("/join/{inviteCode}/direct")
+    @Operation(summary = "Гостевой вход в комнату")
+    @SecurityRequirements
+    @PostMapping("/guest-join")
+    public ResponseEntity<APIResponse<RoomResponse>> guestJoinRoom(
+            @RequestParam String inviteCode,
+            @RequestParam String guestName) {
+
+        RoomResponse response = roomService.guestJoin(inviteCode, guestName);
+        return ResponseEntity.ok().body(APIResponse.success("Successfully joined as guest", response));
+    }
+
+    @Operation(summary = "Прямое присоединение по invite ссылке")
+    @PostMapping("/direct-join/{inviteCode}")
     public ResponseEntity<APIResponse<RoomResponse>> directJoin(
             @PathVariable String inviteCode,
             Principal principal) {
 
         RoomResponse response = roomService.directJoin(inviteCode, principal);
-        return ResponseEntity.ok(APIResponse.success("Successfully joined the room", response));
+        return ResponseEntity.ok().body(APIResponse.success("Successfully joined the room", response));
     }
 }
-

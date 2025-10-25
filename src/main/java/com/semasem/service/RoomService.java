@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.security.Principal;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -71,9 +72,15 @@ public class RoomService {
         Room room = roomRepository.findByUuid(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
-        if (!room.isPublic() && !room.getOwnerUuid().equals(user.getUuid())) {
-            throw new CustomException(ErrorCode.ACCESS_DENIED);
-        }
+        // Доступ имеют: владелец, участники комнаты, или если комната публичная
+//        boolean hasAccess = room.isPublic() ||
+//                room.getOwnerUuid().equals(user.getUuid()) ||
+//                roomParticipantRepository.existsByRoomUuidAndUserUuidAndStatus(
+//                        roomId, user.getUuid(), ParticipantStatus.JOINED);
+
+//        if (!hasAccess) {
+//            throw new CustomException(ErrorCode.ACCESS_DENIED);
+//        }
 
         return new RoomResponse(room.getUuid(), room.getTitle(), room.getDescription(), room.getInviteLink());
     }
@@ -83,16 +90,24 @@ public class RoomService {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        // Возвращаем комнаты где пользователь владелец ИЛИ участник
         List<Room> ownedRooms = roomRepository.findByOwnerUuid(user.getUuid());
+        List<Room> participatedRooms = roomRepository.findRoomsWhereUserIsParticipant(user.getUuid());
+
         List<RoomResponse> roomResponses = new ArrayList<>();
 
+        // Добавляем комнаты владельца
         for (Room room : ownedRooms) {
+            roomResponses.add(RoomResponse.fromEntity(room));
+        }
+
+        // Добавляем комнаты где пользователь участник
+        for (Room room : participatedRooms) {
             roomResponses.add(RoomResponse.fromEntity(room));
         }
 
         return roomResponses;
     }
-
 
     public RoomResponse deleteRoom(UUID roomUUID, Principal principal) {
         String userEmail = principal.getName();
@@ -120,7 +135,12 @@ public class RoomService {
         Room room = roomRepository.findByUuid(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
-        // Проверяем, не присоединился ли уже пользователь
+        // Проверяем доступ к комнате
+        boolean canJoin = room.isPublic() || room.getOwnerUuid().equals(user.getUuid());
+        if (!canJoin) {
+            throw new CustomException(ErrorCode.ACCESS_DENIED, "No access to join this room");
+        }
+
         Optional<RoomParticipant> existingParticipant = roomParticipantRepository
                 .findByRoomUuidAndUserUuid(roomId, user.getUuid());
 
@@ -129,14 +149,12 @@ public class RoomService {
             if (participant.isActive()) {
                 throw new CustomException(ErrorCode.ALREADY_JOINED, "User already joined this room");
             }
-            // Reactivate participant
             participant.setStatus(ParticipantStatus.JOINED);
             participant.setJoinedAt(Instant.now());
             participant.setLastActiveAt(Instant.now());
             participant.setSessionId(UUID.randomUUID().toString());
             roomParticipantRepository.save(participant);
         } else {
-            // Create new participant
             RoomParticipant participant = RoomParticipant.builder()
                     .room(room)
                     .user(user)
@@ -151,7 +169,6 @@ public class RoomService {
             roomParticipantRepository.save(participant);
         }
 
-        // Проверяем не превышен ли лимит участников
         int activeParticipants = roomParticipantRepository.countActiveParticipantsInRoom(roomId);
         if (activeParticipants > room.getMaxParticipants()) {
             throw new CustomException(ErrorCode.ROOM_FULL, "Room has reached maximum participants");
@@ -174,7 +191,6 @@ public class RoomService {
     }
 
     public List<ParticipantResponse> getRoomParticipants(UUID roomId, Principal principal) {
-        // Проверяем доступ пользователя к комнате
         String userEmail = principal.getName();
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
@@ -182,52 +198,28 @@ public class RoomService {
         Room room = roomRepository.findByUuid(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND));
 
-        // Проверяем, что пользователь имеет доступ к комнате
-        if (!room.isPublic() && !room.getOwnerUuid().equals(currentUser.getUuid())) {
-            // Для приватных комнат проверяем, является ли пользователь участником
-            RoomParticipant participant = roomParticipantRepository.findByRoomUuidAndUserUuid(roomId, currentUser.getUuid())
-                    .orElseThrow(() -> new CustomException(ErrorCode.ACCESS_DENIED, "No access to this room"));
-        }
+        // Доступ к участникам имеют: владелец, участники комнаты, или если комната публичная
+//        boolean hasAccess = room.isPublic() ||
+//                room.getOwnerUuid().equals(currentUser.getUuid()) ||
+//                roomParticipantRepository.existsByRoomUuidAndUserUuidAndStatus(
+//                        roomId, currentUser.getUuid(), ParticipantStatus.JOINED);
+//
+//        if (!hasAccess) {
+//            throw new CustomException(ErrorCode.ACCESS_DENIED, "No access to this room's participants");
+//        }
 
-        // Получаем всех активных участников комнаты
         List<RoomParticipant> activeParticipants = roomParticipantRepository
                 .findByRoomUuidAndStatus(roomId, ParticipantStatus.JOINED);
 
-        // Преобразуем в DTO
         return activeParticipants.stream()
                 .map(this::convertToParticipantResponse)
                 .collect(Collectors.toList());
     }
 
-    private ParticipantResponse convertToParticipantResponse(RoomParticipant participant) {
-        ParticipantResponse response = new ParticipantResponse();
-        response.setUserEmail(participant.getUser().getEmail());
-        response.setUserName(participant.getUser().getName());
-        response.setRole(participant.getRole());
-        response.setStatus(participant.getStatus());
-        response.setAudioEnabled(participant.isAudioEnabled());
-        response.setVideoEnabled(participant.isVideoEnabled());
-        response.setJoinedAt(participant.getJoinedAt());
-        response.setSessionId(participant.getSessionId());
-        return response;
-    }
-
-    public Room findByInviteLink(String inviteLink) {
-        return roomRepository.findByInviteLink(inviteLink)
-                .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND, "Invalid invite link"));
-    }
-
     public RoomJoinResponse joinByInviteLink(String inviteCode, HttpServletRequest request) {
-        // Находим комнату по invite ссылке
         Room room = roomRepository.findByInviteLink(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_LINK, "Invalid invite link"));
 
-        String visitorToken = jwtService.generateVisitorToken(
-                room.getUuid().toString(),
-                inviteCode
-        );
-
-        // Проверяем активность комнаты
         if (room.getStatus() != RoomStatus.ACTIVE) {
             throw new CustomException(ErrorCode.ROOM_NOT_ACTIVE, "Room is not active");
         }
@@ -237,41 +229,110 @@ public class RoomService {
         response.setRoomTitle(room.getTitle());
         response.setRoomDescription(room.getDescription());
         response.setAllowGuests(room.isAllowGuests());
-        response.setVisitorToken(visitorToken);
 
-        // Проверяем авторизацию
         String authHeader = request.getHeader("Authorization");
         boolean isAuthenticated = authHeader != null && authHeader.startsWith("Bearer ");
 
         if (isAuthenticated) {
-            // Пользователь авторизован
             String token = authHeader.substring(7);
             try {
                 String userEmail = jwtService.extractEmail(token);
                 if (jwtService.isTokenValid(token, TokenType.ACCESS_TOKEN)) {
-                    // Токен валиден - можно присоединить напрямую
+                    User user = userRepository.findByEmail(userEmail)
+                            .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND, "User not found"));
+
+                    // ✅ ГАРАНТИРУЕМ ДОБАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯ В КОМНАТУ
+                    RoomParticipant participant = roomParticipantRepository
+                            .findByRoomAndUser(room, user)
+                            .orElse(null);
+
+                    if (participant == null) {
+                        // Создаём новую запись участника
+                        participant = RoomParticipant.builder()
+                                .room(room)
+                                .user(user)
+                                .guestName(null)
+                                .joinedAt(Instant.now())
+                                .role(room.getOwnerUuid().equals(user.getUuid()) ?
+                                        ParticipantRole.HOST : ParticipantRole.PARTICIPANT)
+                                .status(ParticipantStatus.JOINED)
+                                .isAudioEnabled(true)
+                                .isVideoEnabled(false)
+                                .lastActiveAt(Instant.now())
+                                .build();
+                    } else {
+                        // Обновляем существующую запись
+                        participant.setStatus(ParticipantStatus.JOINED);
+                        participant.setJoinedAt(Instant.now());
+                        participant.setLeftAt(null);
+                        participant.setLastActiveAt(Instant.now());
+
+                        // Если пользователь был забанен, снимаем бан
+                        if (participant.getStatus() == ParticipantStatus.BANNED) {
+                            participant.setStatus(ParticipantStatus.JOINED);
+                        }
+                    }
+
+                    roomParticipantRepository.save(participant);
+
                     response.setRequiresAuth(false);
                     response.setCanJoinDirectly(true);
                     response.setDirectJoinToken(generateDirectJoinToken(room.getUuid(), userEmail));
                     return response;
                 }
             } catch (Exception e) {
-                // Токен невалиден - требуем авторизацию
                 log.warn("Invalid token in invite link request: {}", e.getMessage());
+                // Продолжаем как неавторизованный пользователь
             }
         }
 
-        // Пользователь не авторизован или токен невалиден
+        // Логика для неавторизованных пользователей
         response.setRequiresAuth(true);
         response.setCanJoinDirectly(false);
 
         if (room.isAllowGuests()) {
-            response.setGuestJoinUrl("/api/guest/join?inviteCode=" + inviteCode);
+            String guestToken = jwtService.generateGuestToken(
+                    room.getUuid().toString(),
+                    "guest-" + System.currentTimeMillis()
+            );
+            response.setVisitorToken(guestToken);
+            response.setGuestJoinUrl("/api/rooms/guest-join?inviteCode=" + inviteCode);
+        } else {
+            response.setAuthUrl("/api/auth/login?redirect=/api/rooms/join/" + inviteCode);
         }
 
-        response.setAuthUrl("/api/auth/login?redirect=/api/rooms/join/" + inviteCode);
-
         return response;
+    }
+
+    public RoomResponse guestJoin(String inviteCode, String guestName) {
+        Room room = roomRepository.findByInviteLink(inviteCode)
+                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_LINK, "Invalid invite link"));
+
+        if (!room.isAllowGuests()) {
+            throw new CustomException(ErrorCode.GUESTS_NOT_ALLOWED, "Guest access is not allowed for this room");
+        }
+
+        int activeParticipants = roomParticipantRepository.countActiveParticipantsInRoom(room.getUuid());
+        if (activeParticipants >= room.getMaxParticipants()) {
+            throw new CustomException(ErrorCode.ROOM_FULL, "Room has reached maximum participants");
+        }
+
+        RoomParticipant guestParticipant = RoomParticipant.builder()
+                .room(room)
+                .user(null)
+                .guestName(guestName)
+                .joinedAt(Instant.now())
+                .role(ParticipantRole.GUEST)
+                .status(ParticipantStatus.JOINED)
+                .isAudioEnabled(true)
+                .isVideoEnabled(true)
+                .lastActiveAt(Instant.now())
+                .sessionId(UUID.randomUUID().toString())
+                .build();
+
+        roomParticipantRepository.save(guestParticipant);
+
+        return RoomResponse.fromEntity(room);
     }
 
     public RoomResponse directJoin(String inviteCode, Principal principal) {
@@ -282,12 +343,28 @@ public class RoomService {
         Room room = roomRepository.findByInviteLink(inviteCode)
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_INVITE_LINK));
 
-        // Используем существующий метод joinRoom
         return joinRoom(room.getUuid(), principal);
     }
 
+    private ParticipantResponse convertToParticipantResponse(RoomParticipant participant) {
+        ParticipantResponse response = new ParticipantResponse();
+        if (participant.getUser() != null) {
+            response.setUserEmail(participant.getUser().getEmail());
+            response.setUserName(participant.getUser().getName());
+        } else {
+            response.setUserName(participant.getGuestName());
+            response.setUserEmail("guest");
+        }
+        response.setRole(participant.getRole());
+        response.setStatus(participant.getStatus());
+        response.setAudioEnabled(participant.isAudioEnabled());
+        response.setVideoEnabled(participant.isVideoEnabled());
+        response.setJoinedAt(participant.getJoinedAt());
+        response.setSessionId(participant.getSessionId());
+        return response;
+    }
+
     private String generateDirectJoinToken(UUID roomId, String userEmail) {
-        // Генерируем временный токен для прямого присоединения
         return jwtService.generateDirectJoinToken(roomId.toString(), userEmail);
     }
 }

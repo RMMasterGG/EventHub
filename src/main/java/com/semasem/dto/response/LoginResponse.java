@@ -8,7 +8,6 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class LoginResponse {
-    private String refreshToken;
     private String accessToken;
     private String name;
     @Email

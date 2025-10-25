@@ -1,7 +1,9 @@
 package com.semasem.repository;
 
 import com.semasem.repository.entity.ParticipantStatus;
+import com.semasem.repository.entity.Room;
 import com.semasem.repository.entity.RoomParticipant;
+import com.semasem.repository.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -41,4 +43,11 @@ public interface RoomParticipantRepository extends JpaRepository<RoomParticipant
     void updateMediaStatus(@Param("participantId") Long participantId,
                            @Param("audioEnabled") boolean audioEnabled,
                            @Param("videoEnabled") boolean videoEnabled);
+
+
+    boolean existsByRoomUuidAndUserUuidAndStatus(UUID roomUuid, UUID userUuid, ParticipantStatus status);
+
+    Optional<RoomParticipant> findByRoomAndUser(Room room, User user);
+    boolean existsByRoomAndUserAndStatus(Room room, User user, ParticipantStatus status);
+
 }

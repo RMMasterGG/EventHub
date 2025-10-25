@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @SuppressWarnings("unused")
@@ -27,4 +28,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.isGuest = true AND u.email = :email")
     Optional<User> findGuestByEmail(@Param("email") String email);
 
+    Optional<User> findByUuid(UUID uuid);
 }

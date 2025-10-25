@@ -14,6 +14,7 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 import static com.semasem.dto.entity.TokenType.ACCESS_TOKEN;
@@ -33,6 +34,12 @@ public class JwtService {
     @Value("${jwt.access-expiration-time:900000}")
     private Long accessExpirationTime;
 
+    @Value("${jwt.guest-expiration-time:7200000}") // 2 часа
+    private Long guestExpirationTime;
+
+    @Value("${jwt.direct-join-expiration-time:300000}") // 5 минут
+    private Long directJoinExpirationTime;
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secretKey.getBytes());
     }
@@ -42,6 +49,7 @@ public class JwtService {
         claims.put("email", user.getEmail());
         claims.put("role", user.getRole().name());
         claims.put("name", user.getName());
+        claims.put("userId", user.getUuid().toString());
 
         switch (type) {
             case REFRESH_TOKEN -> {
@@ -68,6 +76,141 @@ public class JwtService {
         }
     }
 
+    // ✅ ДОБАВЛЕНО: Метод для извлечения userId
+    public String extractUserId(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            return claims.get("userId", String.class);
+        } catch (Exception e) {
+            log.warn("Failed to extract userId from token: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    // ✅ ДОБАВЛЕНО: Метод для извлечения userId с проверкой типа токена
+    public String extractUserId(String token, TokenType expectedType) {
+        try {
+            if (!isTokenValid(token, expectedType)) {
+                return null;
+            }
+            return extractUserId(token);
+        } catch (Exception e) {
+            log.warn("Failed to extract userId from token: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    // Новый метод для генерации guest токена
+    public String generateGuestToken(String roomId, String guestId) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("type", "GUEST_TOKEN");
+        claims.put("roomId", roomId);
+        claims.put("guestId", guestId);
+
+        return Jwts.builder()
+                .claims(claims)
+                .subject(guestId)
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + guestExpirationTime))
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    // Новый метод для валидации guest токена
+    public boolean isGuestTokenValid(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            String tokenType = claims.get("type", String.class);
+            return "GUEST_TOKEN".equals(tokenType) && !isTokenExpired(token);
+        } catch (Exception e) {
+            log.warn("Invalid guest token: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    // Метод для извлечения roomId из guest токена
+    public String extractRoomIdFromGuestToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            return claims.get("roomId", String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // Метод для извлечения guestId из guest токена
+    public String extractGuestId(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            return claims.get("guestId", String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public String generateDirectJoinToken(String roomId, String userEmail) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("roomId", roomId);
+        claims.put("tokenType", "DIRECT_JOIN");
+        return Jwts.builder()
+                .setClaims(claims)
+                .setSubject(userEmail)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + directJoinExpirationTime))
+                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    public boolean validateDirectJoinToken(String token, String expectedRoomId) {
+        try {
+            Claims claims = extractAllClaims(token);
+            String tokenType = claims.get("tokenType", String.class);
+            String roomId = claims.get("roomId", String.class);
+
+            return "DIRECT_JOIN".equals(tokenType) &&
+                    expectedRoomId.equals(roomId) &&
+                    !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public String generateVisitorToken(String roomId, String inviteCode) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("type", "VISITOR");
+        claims.put("roomId", roomId);
+        claims.put("inviteCode", inviteCode);
+        claims.put("timestamp", System.currentTimeMillis());
+
+        return Jwts.builder()
+                .claims(claims)
+                .subject("visitor")
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + guestExpirationTime))
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    public boolean validateVisitorToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            String tokenType = claims.get("type", String.class);
+            return "VISITOR".equals(tokenType) && !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public String extractRoomIdFromVisitorToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            return claims.get("roomId", String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // Остальные существующие методы без изменений
     public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
     }
@@ -81,7 +224,6 @@ public class JwtService {
     }
 
     public String extractType(String token) {
-
         return extractClaim(token, claims -> claims.get("type", String.class));
     }
 
@@ -93,7 +235,6 @@ public class JwtService {
                     .parseSignedClaims(token)
                     .getPayload();
 
-            // Проверяем тип токена, если указан
             if (type != null) {
                 String tokenType = claims.get("type", String.class);
                 if (!type.name().equals(tokenType)) {
@@ -142,67 +283,4 @@ public class JwtService {
                 .parseSignedClaims(token)
                 .getPayload();
     }
-
-    public String generateDirectJoinToken(String roomId, String userEmail) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("roomId", roomId);
-        claims.put("tokenType", "DIRECT_JOIN");
-        return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(userEmail)
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 5 * 60 * 1000)) // 5 минут
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
-    }
-
-    public boolean validateDirectJoinToken(String token, String expectedRoomId) {
-        try {
-            Claims claims = extractAllClaims(token);
-            String tokenType = claims.get("tokenType", String.class);
-            String roomId = claims.get("roomId", String.class);
-
-            return "DIRECT_JOIN".equals(tokenType) &&
-                    expectedRoomId.equals(roomId) &&
-                    !isTokenExpired(token);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    public String generateVisitorToken(String roomId, String inviteCode) {
-        Map<String, Object> claims = new HashMap<>();
-        claims.put("type", "VISITOR");
-        claims.put("roomId", roomId);
-        claims.put("inviteCode", inviteCode);
-        claims.put("timestamp", System.currentTimeMillis());
-
-        return Jwts.builder()
-                .claims(claims)
-                .subject("visitor")
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + 2 * 60 * 60 * 1000)) // 2 часа
-                .signWith(getSigningKey())
-                .compact();
-    }
-
-    public boolean validateVisitorToken(String token) {
-        try {
-            Claims claims = extractAllClaims(token);
-            String tokenType = claims.get("type", String.class);
-            return "VISITOR".equals(tokenType) && !isTokenExpired(token);
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    public String extractRoomIdFromVisitorToken(String token) {
-        try {
-            Claims claims = extractAllClaims(token);
-            return claims.get("roomId", String.class);
-        } catch (Exception e) {
-            return null;
-        }
-    }
-
 }

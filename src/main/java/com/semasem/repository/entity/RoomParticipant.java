@@ -25,8 +25,11 @@ public class RoomParticipant {
     private Room room;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "user_id")
+    private User user; // Может быть null для гостей
+
+    @Column(name = "guest_name")
+    private String guestName; // Имя гостя, если user == null
 
     @Column(name = "joined_at", nullable = false)
     private Instant joinedAt;

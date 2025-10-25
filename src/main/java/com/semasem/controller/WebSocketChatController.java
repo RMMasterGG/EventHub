@@ -1,24 +1,24 @@
 package com.semasem.controller;
 
-import com.semasem.dto.request.ChatMessageRequest;
-import com.semasem.dto.response.ChatMessageResponse;
-import com.semasem.service.ChatService;
+// import com.semasem.dto.request.ChatMessageRequest;
+// import com.semasem.dto.response.ChatMessageResponse;
+// import com.semasem.service.ChatService;
 import com.semasem.service.WebRTCService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.handler.annotation.DestinationVariable;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.messaging.simp.annotation.SubscribeMapping;
+// import org.springframework.messaging.handler.annotation.DestinationVariable;
+// import org.springframework.messaging.handler.annotation.MessageMapping;
+// import org.springframework.messaging.handler.annotation.Payload;
+// import org.springframework.messaging.simp.SimpMessagingTemplate;
+// import org.springframework.messaging.simp.annotation.SubscribeMapping;
 import org.springframework.stereotype.Controller;
 
-import java.security.Principal;
-import java.time.Instant;
-import java.util.Map;
-import java.util.UUID;
+// import java.security.Principal;
+// import java.time.Instant;
+// import java.util.Map;
+// import java.util.UUID;
 
 @Slf4j
 @Controller
@@ -26,11 +26,12 @@ import java.util.UUID;
 @Tag(name = "Chat", description = "Real-time chat WebSocket endpoints")
 public class WebSocketChatController {
 
-    private final SimpMessagingTemplate messagingTemplate;
-    private final ChatService chatService;
+    // private final SimpMessagingTemplate messagingTemplate;
+    // private final ChatService chatService;
     private final WebRTCService webRTCService;
 
-
+    // Закомментируем временно STOMP эндпоинты
+    /*
     @Operation(summary = "Subscribe to chat", description = "WebSocket endpoint for chat messages")
     @SubscribeMapping("/room/{roomId}/chat")
     public void subscribeToChat(@DestinationVariable UUID roomId, Principal principal) {
@@ -79,4 +80,5 @@ public class WebSocketChatController {
                 )
         );
     }
+    */
 }

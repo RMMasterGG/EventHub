@@ -47,7 +47,6 @@ public class UserController {
     }
 
 
-
     @Operation(
             summary = "Профиль пользователя",
             description = "Возвращает данные необходимые для профиля пользователя."

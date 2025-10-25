@@ -1,112 +1,337 @@
 package com.semasem.controller;
 
-import com.semasem.dto.request.WebRTCOfferRequest;
-import com.semasem.dto.request.WebRTCAnswerRequest;
-import com.semasem.dto.request.WebRTCIceCandidateRequest;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.semasem.service.RoomSessionService;
 import com.semasem.service.WebRTCService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.handler.annotation.DestinationVariable;
-import org.springframework.messaging.handler.annotation.MessageMapping;
-import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.messaging.simp.annotation.SubscribeMapping;
-import org.springframework.stereotype.Controller;
+import org.springframework.stereotype.Component;
+import org.springframework.web.socket.*;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import java.security.Principal;
+import java.io.IOException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
-@Controller
+@Component
 @RequiredArgsConstructor
-@Tag(name = "WebRTC", description = "WebRTC signaling and WebSocket endpoints")
-public class WebRTCController {
+public class WebRTCController extends TextWebSocketHandler {
 
-    private final SimpMessagingTemplate messagingTemplate;
+    private final ObjectMapper objectMapper;
     private final WebRTCService webRTCService;
+    private final RoomSessionService roomSessionService;
 
-    // Подписка на комнату
-    @Operation(summary = "Connect to WebRTC WebSocket",
-            description = "WebSocket endpoint for WebRTC signaling"
-    )
-    @SubscribeMapping("/room/{roomId}/webrtc")
-    public void subscribeToRoom(@DestinationVariable UUID roomId, Principal principal) {
-        log.info("User {} subscribed to WebRTC signals for room {}", principal.getName(), roomId);
-        webRTCService.validateRoomAccess(roomId, principal);
+    private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
+    private final Map<String, String> userRooms = new ConcurrentHashMap<>();
+
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        Map<String, String> params = extractParameters(session);
+        String token = params.get("token");
+        String roomId = params.get("roomId");
+        String userId = params.get("userId");
+
+        log.info("WebSocket connection attempt - Token: {}, Room: {}, User: {}",
+                token != null ? "present" : "missing", roomId, userId);
+
+        if (token == null || roomId == null || userId == null) {
+            log.warn("Invalid connection parameters - token: {}, roomId: {}, userId: {}",
+                    token, roomId, userId);
+            session.close(CloseStatus.BAD_DATA);
+            return;
+        }
+
+        try {
+            UUID roomUuid = UUID.fromString(roomId);
+
+            // Валидируем доступ к комнате
+            webRTCService.validateRoomAccess(roomUuid, () -> userId);
+
+            // Сохраняем сессию
+            sessions.put(userId, session);
+            userRooms.put(userId, roomId);
+
+            // Добавляем в активные участники
+            roomSessionService.addParticipant(roomUuid, userId);
+
+            // Уведомляем о новом участнике
+            broadcastToRoom(roomId, createMessage("new_peer", Map.of("userId", userId)));
+
+            // Отправляем текущий список участников новому пользователю
+            sendParticipantsList(roomUuid, userId);
+
+            log.info("User {} successfully connected to room {}", userId, roomId);
+
+        } catch (Exception e) {
+            log.error("Failed to establish WebSocket connection for user {} to room {}",
+                    userId, roomId, e);
+
+            // Отправляем сообщение об ошибке перед закрытием (если сессия еще открыта)
+            sendErrorSafe(session, "Failed to join room: " + e.getMessage());
+
+            session.close(CloseStatus.NOT_ACCEPTABLE);
+        }
     }
 
-    // Отправка WebRTC offer
-    @MessageMapping("/room/{roomId}/webrtc/offer")
-    public void handleOffer(@DestinationVariable UUID roomId,
-                            @Payload WebRTCOfferRequest offerRequest,
-                            Principal principal) {
-        log.info("WebRTC offer from user {} in room {}", principal.getName(), roomId);
-        webRTCService.validateRoomAccess(roomId, principal);
+    @Override
+    protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
+        String userId = getUserIdFromSession(session);
+        String roomId = userRooms.get(userId);
 
-        // Рассылаем offer всем участникам комнаты кроме отправителя
-        messagingTemplate.convertAndSend(
-                "/topic/room/" + roomId + "/webrtc/offer",
-                offerRequest
-        );
+        if (roomId == null) {
+            log.warn("User {} sent message without active room", userId);
+            sendErrorSafe(session, "No active room");
+            return;
+        }
+
+        try {
+            Map<String, Object> payload = objectMapper.readValue(message.getPayload(), Map.class);
+            String type = (String) payload.get("type");
+
+            if (type == null) {
+                log.warn("Message without type from user {}", userId);
+                return;
+            }
+
+            log.debug("Received message type: {} from user: {} in room: {}", type, userId, roomId);
+
+            switch (type) {
+                case "offer":
+                    handleOffer(roomId, userId, payload);
+                    break;
+                case "answer":
+                    handleAnswer(roomId, userId, payload);
+                    break;
+                case "ice_candidate":
+                    handleIceCandidate(roomId, userId, payload);
+                    break;
+                case "get_participants":
+                    handleGetParticipants(roomId, userId);
+                    break;
+                case "peer_left":
+                    handlePeerLeft(roomId, userId);
+                    break;
+                case "new_peer": // Обрабатываем new_peer сообщения
+                    log.debug("New peer message from {}", userId);
+                    break;
+                default:
+                    log.warn("Unknown message type: {} from user {}", type, userId);
+                    sendErrorSafe(session, "Unknown message type: " + type);
+            }
+
+        } catch (Exception e) {
+            log.error("Error handling WebSocket message from user {}", userId, e);
+            sendErrorSafe(session, "Error processing message");
+        }
     }
 
-    // Отправка WebRTC answer
-    @MessageMapping("/room/{roomId}/webrtc/answer")
-    public void handleAnswer(@DestinationVariable UUID roomId,
-                             @Payload WebRTCAnswerRequest answerRequest,
-                             Principal principal) {
-        log.info("WebRTC answer from user {} in room {}", principal.getName(), roomId);
-        webRTCService.validateRoomAccess(roomId, principal);
+    private void handleOffer(String roomId, String fromUserId, Map<String, Object> payload) {
+        String targetUserId = (String) payload.get("targetUserId");
+        Object sdp = payload.get("sdp");
 
-        // Отправляем answer конкретному пользователю
-        messagingTemplate.convertAndSendToUser(
-                answerRequest.getTargetUserId(),
-                "/queue/room/" + roomId + "/webrtc/answer",
-                answerRequest
-        );
+        if (targetUserId != null && sdp != null) {
+            Map<String, Object> message = createMessage("offer", Map.of(
+                    "fromUserId", fromUserId,
+                    "sdp", sdp
+            ));
+
+            sendToUserSafe(targetUserId, message);
+            log.debug("Offer sent from {} to {}", fromUserId, targetUserId);
+        } else {
+            log.warn("Invalid offer from {}: targetUserId={}, sdp={}",
+                    fromUserId, targetUserId, sdp != null ? "present" : "null");
+        }
     }
 
-    // Обмен ICE candidates
-    @MessageMapping("/room/{roomId}/webrtc/ice-candidate")
-    public void handleIceCandidate(@DestinationVariable UUID roomId,
-                                   @Payload WebRTCIceCandidateRequest iceCandidateRequest,
-                                   Principal principal) {
-        log.info("ICE candidate from user {} in room {}", principal.getName(), roomId);
-        webRTCService.validateRoomAccess(roomId, principal);
+    private void handleAnswer(String roomId, String fromUserId, Map<String, Object> payload) {
+        String targetUserId = (String) payload.get("targetUserId");
+        Object sdp = payload.get("sdp");
 
-        // Отправляем ICE candidate конкретному пользователю
-        messagingTemplate.convertAndSendToUser(
-                iceCandidateRequest.getTargetUserId(),
-                "/queue/room/" + roomId + "/webrtc/ice-candidate",
-                iceCandidateRequest
-        );
+        if (targetUserId != null && sdp != null) {
+            Map<String, Object> message = createMessage("answer", Map.of(
+                    "fromUserId", fromUserId,
+                    "sdp", sdp
+            ));
+
+            sendToUserSafe(targetUserId, message);
+            log.debug("Answer sent from {} to {}", fromUserId, targetUserId);
+        }
     }
 
-    // Уведомление о новом участнике
-    @MessageMapping("/room/{roomId}/webrtc/new-peer")
-    public void handleNewPeer(@DestinationVariable UUID roomId, Principal principal) {
-        log.info("New peer notification from user {} in room {}", principal.getName(), roomId);
-        webRTCService.validateRoomAccess(roomId, principal);
+    private void handleIceCandidate(String roomId, String fromUserId, Map<String, Object> payload) {
+        String targetUserId = (String) payload.get("targetUserId");
+        Object candidate = payload.get("candidate");
 
-        // Уведомляем всех о новом участнике
-        messagingTemplate.convertAndSend(
-                "/topic/room/" + roomId + "/webrtc/new-peer",
-                Map.of("userId", principal.getName(), "action", "joined")
-        );
+        if (targetUserId != null && candidate != null) {
+            Map<String, Object> message = createMessage("ice_candidate", Map.of(
+                    "fromUserId", fromUserId,
+                    "candidate", candidate
+            ));
+
+            sendToUserSafe(targetUserId, message);
+            log.debug("ICE candidate sent from {} to {}", fromUserId, targetUserId);
+        }
     }
 
-    // Уведомление о выходе участника
-    @MessageMapping("/room/{roomId}/webrtc/peer-left")
-    public void handlePeerLeft(@DestinationVariable UUID roomId, Principal principal) {
-        log.info("Peer left notification from user {} in room {}", principal.getName(), roomId);
+    private void handleGetParticipants(String roomId, String userId) {
+        try {
+            UUID roomUuid = UUID.fromString(roomId);
+            sendParticipantsList(roomUuid, userId);
+        } catch (Exception e) {
+            log.error("Error getting participants for room {}", roomId, e);
+        }
+    }
 
-        // Уведомляем всех о выходе участника
-        messagingTemplate.convertAndSend(
-                "/topic/room/" + roomId + "/webrtc/peer-left",
-                Map.of("userId", principal.getName(), "action", "left")
-        );
+    private void handlePeerLeft(String roomId, String userId) {
+        log.info("User {} explicitly left room {}", userId, roomId);
+        // Уведомляем об уходе участника
+        broadcastToRoomSafe(roomId, createMessage("peer_left", Map.of("userId", userId)));
+
+        // Удаляем из активных участников
+        try {
+            UUID roomUuid = UUID.fromString(roomId);
+            roomSessionService.removeParticipant(roomUuid, userId);
+        } catch (Exception e) {
+            log.error("Error removing participant from room", e);
+        }
+
+        // Закрываем сессию
+        cleanupUserSession(userId);
+    }
+
+    @Override
+    public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
+        String userId = getUserIdFromSession(session);
+        String roomId = userRooms.get(userId);
+
+        if (roomId != null && userId != null) {
+            log.info("User {} connection closed from room {}, status: {}",
+                    userId, roomId, status);
+
+            // Уведомляем об уходе участника
+            broadcastToRoomSafe(roomId, createMessage("peer_left", Map.of("userId", userId)));
+
+            // Удаляем из активных участников
+            try {
+                UUID roomUuid = UUID.fromString(roomId);
+                roomSessionService.removeParticipant(roomUuid, userId);
+            } catch (Exception e) {
+                log.error("Error cleaning up user session", e);
+            }
+        }
+
+        cleanupUserSession(userId);
+    }
+
+    @Override
+    public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
+        String userId = getUserIdFromSession(session);
+        log.error("Transport error for user {}", userId, exception);
+        cleanupUserSession(userId);
+    }
+
+    private void cleanupUserSession(String userId) {
+        WebSocketSession session = sessions.remove(userId);
+        userRooms.remove(userId);
+        if (session != null && session.isOpen()) {
+            try {
+                session.close(CloseStatus.NORMAL);
+            } catch (IOException e) {
+                log.debug("Error closing session for user {}", userId, e);
+            }
+        }
+    }
+
+    private void sendParticipantsList(UUID roomId, String userId) {
+        try {
+            var participants = roomSessionService.getActiveParticipants(roomId);
+            int count = roomSessionService.getActiveParticipantsCount(roomId);
+
+            Map<String, Object> message = createMessage("participants_list", Map.of(
+                    "participants", participants,
+                    "count", count,
+                    "roomId", roomId.toString()
+            ));
+
+            sendToUserSafe(userId, message);
+            log.debug("Sent participants list to user {}: {} participants", userId, count);
+
+        } catch (Exception e) {
+            log.error("Error sending participants list", e);
+        }
+    }
+
+    private void sendToUserSafe(String userId, Map<String, Object> message) {
+        WebSocketSession session = sessions.get(userId);
+        if (session != null && session.isOpen()) {
+            try {
+                String jsonMessage = objectMapper.writeValueAsString(message);
+                session.sendMessage(new TextMessage(jsonMessage));
+            } catch (IOException e) {
+                log.error("Error sending message to user {}", userId, e);
+                // Удаляем нерабочую сессию
+                cleanupUserSession(userId);
+            }
+        } else {
+            log.debug("User {} session not found or closed", userId);
+            cleanupUserSession(userId);
+        }
+    }
+
+    private void broadcastToRoomSafe(String roomId, Map<String, Object> message) {
+        int sentCount = 0;
+        for (Map.Entry<String, String> entry : userRooms.entrySet()) {
+            if (roomId.equals(entry.getValue())) {
+                String userId = entry.getKey();
+                sendToUserSafe(userId, message);
+                sentCount++;
+            }
+        }
+        log.debug("Broadcast message to {} users in room {}", sentCount, roomId);
+    }
+
+    private void sendErrorSafe(WebSocketSession session, String error) {
+        if (session != null && session.isOpen()) {
+            try {
+                Map<String, Object> errorMessage = createMessage("error", Map.of("message", error));
+                String jsonError = objectMapper.writeValueAsString(errorMessage);
+                session.sendMessage(new TextMessage(jsonError));
+            } catch (Exception e) {
+                log.debug("Could not send error message (session might be closed)", e);
+            }
+        }
+    }
+
+    private void broadcastToRoom(String roomId, Map<String, Object> message) {
+        broadcastToRoomSafe(roomId, message);
+    }
+
+    private Map<String, Object> createMessage(String type, Map<String, Object> data) {
+        Map<String, Object> message = new HashMap<>(data);
+        message.put("type", type);
+        message.put("timestamp", System.currentTimeMillis());
+        return message;
+    }
+
+    private Map<String, String> extractParameters(WebSocketSession session) {
+        Map<String, String> params = new HashMap<>();
+        if (session.getUri() != null && session.getUri().getQuery() != null) {
+            String query = session.getUri().getQuery();
+            for (String param : query.split("&")) {
+                String[] keyValue = param.split("=");
+                if (keyValue.length == 2) {
+                    params.put(keyValue[0], keyValue[1]);
+                }
+            }
+        }
+        return params;
+    }
+
+    private String getUserIdFromSession(WebSocketSession session) {
+        Map<String, String> params = extractParameters(session);
+        return params.get("userId");
     }
 }

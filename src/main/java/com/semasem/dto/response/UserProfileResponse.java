@@ -10,6 +10,7 @@ import java.time.LocalDate;
 @Data
 @AllArgsConstructor
 public class UserProfileResponse {
+    private String userId;
     private String avatarLink;
     private String name;
     @Email

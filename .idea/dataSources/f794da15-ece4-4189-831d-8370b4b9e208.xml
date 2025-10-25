@@ -3,7 +3,7 @@
   <database-model serializer="dbm" dbms="POSTGRES" family-id="POSTGRES" format-version="4.53">
     <root id="1">
       <DateStyle>mdy</DateStyle>
-      <IntrospectionStateNumber>770</IntrospectionStateNumber>
+      <IntrospectionStateNumber>958</IntrospectionStateNumber>
       <ServerVersion>15.14</ServerVersion>
       <StartupTime>1761381774</StartupTime>
       <TimeZones>true ACDT
@@ -699,7 +699,7 @@ true posixrules
 13273||10|C|G
 13273||-9223372036854775808|U|G
 13273||10|U|G</Grants>
-      <IntrospectionStateNumber>770</IntrospectionStateNumber>
+      <IntrospectionStateNumber>958</IntrospectionStateNumber>
       <ObjectId>16384</ObjectId>
       <OwnerName>postgres</OwnerName>
     </database>
@@ -4118,321 +4118,460 @@ true posixrules
       <AutoIntrospectionLevel>3</AutoIntrospectionLevel>
       <Comment>standard public schema</Comment>
       <Current>1</Current>
-      <LastIntrospectionL1Xid>770</LastIntrospectionL1Xid>
-      <LastIntrospectionL2Xid>770</LastIntrospectionL2Xid>
-      <LastIntrospectionL3Xid>770</LastIntrospectionL3Xid>
+      <LastIntrospectionL1Xid>958</LastIntrospectionL1Xid>
+      <LastIntrospectionL2Xid>958</LastIntrospectionL2Xid>
+      <LastIntrospectionL3Xid>958</LastIntrospectionL3Xid>
       <LastIntrospectionLevel>3</LastIntrospectionLevel>
-      <LastIntrospectionLocalTimestamp>2025-10-25.12:20:30</LastIntrospectionLocalTimestamp>
+      <LastIntrospectionLocalTimestamp>2025-10-25.15:33:02</LastIntrospectionLocalTimestamp>
       <ObjectId>2200</ObjectId>
       <StateNumber>518</StateNumber>
       <OwnerName>pg_database_owner</OwnerName>
     </schema>
     <sequence id="263" parent="262" name="room_participants_id_seq">
       <DetailsLevel>2</DetailsLevel>
-      <ObjectId>16461</ObjectId>
+      <ObjectId>16852</ObjectId>
       <SequenceIdentity>1</SequenceIdentity>
       <StartValue>1</StartValue>
-      <StateNumber>758</StateNumber>
+      <StateNumber>950</StateNumber>
       <StoredType>bigint|0s</StoredType>
       <OwnerName>postgres</OwnerName>
     </sequence>
-    <table id="264" parent="262" name="room_participants">
+    <table id="264" parent="262" name="chat_messages">
       <DetailsLevel>2</DetailsLevel>
-      <ObjectId>16462</ObjectId>
-      <StateNumber>761</StateNumber>
+      <ObjectId>16844</ObjectId>
+      <StateNumber>953</StateNumber>
       <AccessMethodId>2</AccessMethodId>
       <OwnerName>postgres</OwnerName>
     </table>
-    <table id="265" parent="262" name="rooms">
+    <table id="265" parent="262" name="room_participants">
       <DetailsLevel>2</DetailsLevel>
-      <ObjectId>16471</ObjectId>
-      <StateNumber>761</StateNumber>
+      <ObjectId>16853</ObjectId>
+      <StateNumber>955</StateNumber>
       <AccessMethodId>2</AccessMethodId>
       <OwnerName>postgres</OwnerName>
     </table>
-    <table id="266" parent="262" name="users">
+    <table id="266" parent="262" name="rooms">
       <DetailsLevel>2</DetailsLevel>
-      <ObjectId>16479</ObjectId>
-      <StateNumber>762</StateNumber>
+      <ObjectId>16862</ObjectId>
+      <StateNumber>953</StateNumber>
       <AccessMethodId>2</AccessMethodId>
       <OwnerName>postgres</OwnerName>
     </table>
-    <check id="267" parent="264" name="room_participants_role_check">
-      <ColNames>role</ColNames>
-      <ObjectId>16465</ObjectId>
-      <Predicate>(role)::text = ANY ((ARRAY[&apos;HOST&apos;::character varying, &apos;CO_HOST&apos;::character varying, &apos;PARTICIPANT&apos;::character varying, &apos;GUEST&apos;::character varying])::text[])</Predicate>
-      <StateNumber>758</StateNumber>
+    <table id="267" parent="262" name="users">
+      <DetailsLevel>2</DetailsLevel>
+      <ObjectId>16870</ObjectId>
+      <StateNumber>954</StateNumber>
+      <AccessMethodId>2</AccessMethodId>
+      <OwnerName>postgres</OwnerName>
+    </table>
+    <check id="268" parent="264" name="chat_messages_type_check">
+      <ColNames>type</ColNames>
+      <ObjectId>16847</ObjectId>
+      <Predicate>(type)::text = ANY ((ARRAY[&apos;TEXT&apos;::character varying, &apos;SYSTEM&apos;::character varying, &apos;JOIN&apos;::character varying, &apos;LEAVE&apos;::character varying, &apos;FILE&apos;::character varying])::text[])</Predicate>
+      <StateNumber>949</StateNumber>
     </check>
-    <check id="268" parent="264" name="room_participants_status_check">
-      <ColNames>status</ColNames>
-      <ObjectId>16466</ObjectId>
-      <Predicate>(status)::text = ANY ((ARRAY[&apos;JOINED&apos;::character varying, &apos;LEFT&apos;::character varying, &apos;KICKED&apos;::character varying, &apos;BANNED&apos;::character varying])::text[])</Predicate>
-      <StateNumber>758</StateNumber>
-    </check>
-    <column id="269" parent="264" name="is_audio_enabled">
+    <column id="269" parent="264" name="uuid">
+      <NotNull>1</NotNull>
       <Position>1</Position>
-      <StateNumber>758</StateNumber>
-      <StoredType>boolean|0s</StoredType>
-      <TypeId>16</TypeId>
+      <StateNumber>949</StateNumber>
+      <StoredType>uuid|0s</StoredType>
+      <TypeId>2950</TypeId>
     </column>
-    <column id="270" parent="264" name="is_video_enabled">
+    <column id="270" parent="264" name="content">
+      <NotNull>1</NotNull>
       <Position>2</Position>
-      <StateNumber>758</StateNumber>
+      <StateNumber>949</StateNumber>
+      <StoredType>text|0s</StoredType>
+      <TypeId>25</TypeId>
+    </column>
+    <column id="271" parent="264" name="edited">
+      <Position>3</Position>
+      <StateNumber>949</StateNumber>
       <StoredType>boolean|0s</StoredType>
       <TypeId>16</TypeId>
     </column>
-    <column id="271" parent="264" name="id">
-      <IdentityKind>by-default</IdentityKind>
-      <NotNull>1</NotNull>
-      <Position>3</Position>
-      <StateNumber>758</StateNumber>
-      <StoredType>bigint|0s</StoredType>
-      <SequenceId>16461</SequenceId>
-      <TypeId>20</TypeId>
-    </column>
-    <column id="272" parent="264" name="joined_at">
-      <NotNull>1</NotNull>
+    <column id="272" parent="264" name="edited_at">
       <Position>4</Position>
-      <StateNumber>758</StateNumber>
+      <StateNumber>949</StateNumber>
       <StoredType>timestamp(6) with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <column id="273" parent="264" name="last_active_at">
+    <column id="273" parent="264" name="reply_to">
       <Position>5</Position>
-      <StateNumber>758</StateNumber>
-      <StoredType>timestamp(6) with time zone|0s</StoredType>
-      <TypeId>1184</TypeId>
+      <StateNumber>949</StateNumber>
+      <StoredType>varchar(255)|0s</StoredType>
+      <TypeId>1043</TypeId>
     </column>
-    <column id="274" parent="264" name="left_at">
+    <column id="274" parent="264" name="timestamp">
+      <NotNull>1</NotNull>
       <Position>6</Position>
-      <StateNumber>758</StateNumber>
+      <StateNumber>949</StateNumber>
       <StoredType>timestamp(6) with time zone|0s</StoredType>
       <TypeId>1184</TypeId>
     </column>
-    <column id="275" parent="264" name="room_id">
+    <column id="275" parent="264" name="type">
       <NotNull>1</NotNull>
       <Position>7</Position>
-      <StateNumber>758</StateNumber>
-      <StoredType>uuid|0s</StoredType>
-      <TypeId>2950</TypeId>
+      <StateNumber>949</StateNumber>
+      <StoredType>varchar(255)|0s</StoredType>
+      <TypeId>1043</TypeId>
     </column>
-    <column id="276" parent="264" name="user_id">
+    <column id="276" parent="264" name="room_id">
       <NotNull>1</NotNull>
       <Position>8</Position>
-      <StateNumber>758</StateNumber>
+      <StateNumber>949</StateNumber>
       <StoredType>uuid|0s</StoredType>
       <TypeId>2950</TypeId>
     </column>
-    <column id="277" parent="264" name="role">
+    <column id="277" parent="264" name="user_id">
       <NotNull>1</NotNull>
       <Position>9</Position>
-      <StateNumber>758</StateNumber>
-      <StoredType>varchar(255)|0s</StoredType>
-      <TypeId>1043</TypeId>
+      <StateNumber>949</StateNumber>
+      <StoredType>uuid|0s</StoredType>
+      <TypeId>2950</TypeId>
     </column>
-    <column id="278" parent="264" name="session_id">
-      <Position>10</Position>
-      <StateNumber>758</StateNumber>
-      <StoredType>varchar(255)|0s</StoredType>
-      <TypeId>1043</TypeId>
-    </column>
-    <column id="279" parent="264" name="status">
-      <NotNull>1</NotNull>
-      <Position>11</Position>
-      <StateNumber>758</StateNumber>
-      <StoredType>varchar(255)|0s</StoredType>
-      <TypeId>1043</TypeId>
-    </column>
-    <foreign-key id="280" parent="264" name="fk4mv7x9pqx10gk4dp04uv8kcj0">
+    <foreign-key id="278" parent="264" name="fkpy62y5w8v8wfoygs3nk35i4y1">
       <ColNames>room_id</ColNames>
-      <ObjectId>16487</ObjectId>
-      <StateNumber>761</StateNumber>
-      <RefKeyColPositions>6</RefKeyColPositions>
-      <RefTableId>16471</RefTableId>
+      <ObjectId>16878</ObjectId>
+      <StateNumber>953</StateNumber>
+      <RefKeyColPositions>1</RefKeyColPositions>
+      <RefTableId>16862</RefTableId>
     </foreign-key>
-    <foreign-key id="281" parent="264" name="fkry0h8u0jjq3gsyc9rvvqujek3">
+    <foreign-key id="279" parent="264" name="fk6f0y4l43ihmgfswkgy9yrtjkh">
       <ColNames>user_id</ColNames>
-      <ObjectId>16492</ObjectId>
-      <StateNumber>762</StateNumber>
-      <RefKeyColPositions>4</RefKeyColPositions>
-      <RefTableId>16479</RefTableId>
+      <ObjectId>16883</ObjectId>
+      <StateNumber>954</StateNumber>
+      <RefKeyColPositions>1</RefKeyColPositions>
+      <RefTableId>16870</RefTableId>
     </foreign-key>
-    <index id="282" parent="264" name="room_participants_pkey">
-      <ColNames>id</ColNames>
+    <index id="280" parent="264" name="chat_messages_pkey">
+      <ColNames>uuid</ColNames>
       <NameSurrogate>1</NameSurrogate>
-      <ObjectId>16469</ObjectId>
+      <ObjectId>16850</ObjectId>
       <Primary>1</Primary>
-      <StateNumber>758</StateNumber>
+      <StateNumber>949</StateNumber>
       <Unique>1</Unique>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <key id="283" parent="264" name="room_participants_pkey">
+    <key id="281" parent="264" name="chat_messages_pkey">
       <NameSurrogate>1</NameSurrogate>
-      <ObjectId>16470</ObjectId>
+      <ObjectId>16851</ObjectId>
       <Primary>1</Primary>
-      <StateNumber>758</StateNumber>
-      <UnderlyingIndexId>16469</UnderlyingIndexId>
+      <StateNumber>949</StateNumber>
+      <UnderlyingIndexId>16850</UnderlyingIndexId>
     </key>
-    <check id="284" parent="265" name="rooms_status_check">
-      <ColNames>status</ColNames>
-      <ObjectId>16474</ObjectId>
-      <Predicate>(status)::text = ANY ((ARRAY[&apos;ACTIVE&apos;::character varying, &apos;INACTIVE&apos;::character varying, &apos;DELETED&apos;::character varying])::text[])</Predicate>
-      <StateNumber>759</StateNumber>
+    <check id="282" parent="265" name="room_participants_role_check">
+      <ColNames>role</ColNames>
+      <ObjectId>16856</ObjectId>
+      <Predicate>(role)::text = ANY ((ARRAY[&apos;HOST&apos;::character varying, &apos;CO_HOST&apos;::character varying, &apos;PARTICIPANT&apos;::character varying, &apos;GUEST&apos;::character varying])::text[])</Predicate>
+      <StateNumber>950</StateNumber>
     </check>
-    <column id="285" parent="265" name="is_public">
+    <check id="283" parent="265" name="room_participants_status_check">
+      <ColNames>status</ColNames>
+      <ObjectId>16857</ObjectId>
+      <Predicate>(status)::text = ANY ((ARRAY[&apos;JOINED&apos;::character varying, &apos;LEFT&apos;::character varying, &apos;KICKED&apos;::character varying, &apos;BANNED&apos;::character varying])::text[])</Predicate>
+      <StateNumber>950</StateNumber>
+    </check>
+    <column id="284" parent="265" name="id">
+      <IdentityKind>by-default</IdentityKind>
       <NotNull>1</NotNull>
       <Position>1</Position>
-      <StateNumber>759</StateNumber>
-      <StoredType>boolean|0s</StoredType>
-      <TypeId>16</TypeId>
+      <StateNumber>950</StateNumber>
+      <StoredType>bigint|0s</StoredType>
+      <SequenceId>16852</SequenceId>
+      <TypeId>20</TypeId>
     </column>
-    <column id="286" parent="265" name="max_participants">
-      <NotNull>1</NotNull>
+    <column id="285" parent="265" name="guest_name">
       <Position>2</Position>
-      <StateNumber>759</StateNumber>
-      <StoredType>integer|0s</StoredType>
-      <TypeId>23</TypeId>
-    </column>
-    <column id="287" parent="265" name="created_at">
-      <Position>3</Position>
-      <StateNumber>759</StateNumber>
-      <StoredType>timestamp(6) with time zone|0s</StoredType>
-      <TypeId>1184</TypeId>
-    </column>
-    <column id="288" parent="265" name="updated_at">
-      <Position>4</Position>
-      <StateNumber>759</StateNumber>
-      <StoredType>timestamp(6) with time zone|0s</StoredType>
-      <TypeId>1184</TypeId>
-    </column>
-    <column id="289" parent="265" name="owner_uuid">
-      <Position>5</Position>
-      <StateNumber>759</StateNumber>
-      <StoredType>uuid|0s</StoredType>
-      <TypeId>2950</TypeId>
-    </column>
-    <column id="290" parent="265" name="uuid">
-      <NotNull>1</NotNull>
-      <Position>6</Position>
-      <StateNumber>759</StateNumber>
-      <StoredType>uuid|0s</StoredType>
-      <TypeId>2950</TypeId>
-    </column>
-    <column id="291" parent="265" name="description">
-      <Position>7</Position>
-      <StateNumber>759</StateNumber>
+      <StateNumber>950</StateNumber>
       <StoredType>varchar(255)|0s</StoredType>
       <TypeId>1043</TypeId>
     </column>
-    <column id="292" parent="265" name="invite_link">
+    <column id="286" parent="265" name="is_audio_enabled">
+      <Position>3</Position>
+      <StateNumber>950</StateNumber>
+      <StoredType>boolean|0s</StoredType>
+      <TypeId>16</TypeId>
+    </column>
+    <column id="287" parent="265" name="is_video_enabled">
+      <Position>4</Position>
+      <StateNumber>950</StateNumber>
+      <StoredType>boolean|0s</StoredType>
+      <TypeId>16</TypeId>
+    </column>
+    <column id="288" parent="265" name="joined_at">
+      <NotNull>1</NotNull>
+      <Position>5</Position>
+      <StateNumber>950</StateNumber>
+      <StoredType>timestamp(6) with time zone|0s</StoredType>
+      <TypeId>1184</TypeId>
+    </column>
+    <column id="289" parent="265" name="last_active_at">
+      <Position>6</Position>
+      <StateNumber>950</StateNumber>
+      <StoredType>timestamp(6) with time zone|0s</StoredType>
+      <TypeId>1184</TypeId>
+    </column>
+    <column id="290" parent="265" name="left_at">
+      <Position>7</Position>
+      <StateNumber>950</StateNumber>
+      <StoredType>timestamp(6) with time zone|0s</StoredType>
+      <TypeId>1184</TypeId>
+    </column>
+    <column id="291" parent="265" name="role">
+      <NotNull>1</NotNull>
       <Position>8</Position>
-      <StateNumber>759</StateNumber>
+      <StateNumber>950</StateNumber>
+      <StoredType>varchar(255)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <column id="292" parent="265" name="session_id">
+      <Position>9</Position>
+      <StateNumber>950</StateNumber>
       <StoredType>varchar(255)|0s</StoredType>
       <TypeId>1043</TypeId>
     </column>
     <column id="293" parent="265" name="status">
-      <Position>9</Position>
-      <StateNumber>759</StateNumber>
-      <StoredType>varchar(255)|0s</StoredType>
-      <TypeId>1043</TypeId>
-    </column>
-    <column id="294" parent="265" name="title">
+      <NotNull>1</NotNull>
       <Position>10</Position>
-      <StateNumber>759</StateNumber>
+      <StateNumber>950</StateNumber>
       <StoredType>varchar(255)|0s</StoredType>
       <TypeId>1043</TypeId>
     </column>
-    <index id="295" parent="265" name="rooms_pkey">
-      <ColNames>uuid</ColNames>
-      <NameSurrogate>1</NameSurrogate>
-      <ObjectId>16477</ObjectId>
-      <Primary>1</Primary>
-      <StateNumber>759</StateNumber>
-      <Unique>1</Unique>
-      <AccessMethodId>403</AccessMethodId>
-    </index>
-    <key id="296" parent="265" name="rooms_pkey">
-      <NameSurrogate>1</NameSurrogate>
-      <ObjectId>16478</ObjectId>
-      <Primary>1</Primary>
-      <StateNumber>759</StateNumber>
-      <UnderlyingIndexId>16477</UnderlyingIndexId>
-    </key>
-    <check id="297" parent="266" name="users_role_check">
-      <ColNames>role</ColNames>
-      <ObjectId>16482</ObjectId>
-      <Predicate>(role)::text = ANY ((ARRAY[&apos;ROLE_USER&apos;::character varying, &apos;ROLE_ADMIN&apos;::character varying])::text[])</Predicate>
-      <StateNumber>760</StateNumber>
-    </check>
-    <column id="298" parent="266" name="created_at">
-      <Position>1</Position>
-      <StateNumber>760</StateNumber>
-      <StoredType>date|0s</StoredType>
-      <TypeId>1082</TypeId>
-    </column>
-    <column id="299" parent="266" name="email_verified">
+    <column id="294" parent="265" name="room_id">
       <NotNull>1</NotNull>
-      <Position>2</Position>
-      <StateNumber>760</StateNumber>
-      <StoredType>boolean|0s</StoredType>
-      <TypeId>16</TypeId>
-    </column>
-    <column id="300" parent="266" name="phone_number">
-      <Position>3</Position>
-      <StateNumber>760</StateNumber>
-      <StoredType>varchar(12)|0s</StoredType>
-      <TypeId>1043</TypeId>
-    </column>
-    <column id="301" parent="266" name="uuid">
-      <NotNull>1</NotNull>
-      <Position>4</Position>
-      <StateNumber>760</StateNumber>
+      <Position>11</Position>
+      <StateNumber>950</StateNumber>
       <StoredType>uuid|0s</StoredType>
       <TypeId>2950</TypeId>
     </column>
-    <column id="302" parent="266" name="role">
-      <NotNull>1</NotNull>
-      <Position>5</Position>
-      <StateNumber>760</StateNumber>
-      <StoredType>varchar(20)|0s</StoredType>
-      <TypeId>1043</TypeId>
+    <column id="295" parent="265" name="user_id">
+      <Position>12</Position>
+      <StateNumber>950</StateNumber>
+      <StoredType>uuid|0s</StoredType>
+      <TypeId>2950</TypeId>
     </column>
-    <column id="303" parent="266" name="name">
-      <NotNull>1</NotNull>
-      <Position>6</Position>
-      <StateNumber>760</StateNumber>
-      <StoredType>varchar(100)|0s</StoredType>
-      <TypeId>1043</TypeId>
-    </column>
-    <column id="304" parent="266" name="email">
-      <NotNull>1</NotNull>
-      <Position>7</Position>
-      <StateNumber>760</StateNumber>
-      <StoredType>varchar(255)|0s</StoredType>
-      <TypeId>1043</TypeId>
-    </column>
-    <column id="305" parent="266" name="password">
-      <NotNull>1</NotNull>
-      <Position>8</Position>
-      <StateNumber>760</StateNumber>
-      <StoredType>varchar(255)|0s</StoredType>
-      <TypeId>1043</TypeId>
-    </column>
-    <index id="306" parent="266" name="users_pkey">
-      <ColNames>uuid</ColNames>
+    <foreign-key id="296" parent="265" name="fk4mv7x9pqx10gk4dp04uv8kcj0">
+      <ColNames>room_id</ColNames>
+      <ObjectId>16888</ObjectId>
+      <StateNumber>955</StateNumber>
+      <RefKeyColPositions>1</RefKeyColPositions>
+      <RefTableId>16862</RefTableId>
+    </foreign-key>
+    <foreign-key id="297" parent="265" name="fkry0h8u0jjq3gsyc9rvvqujek3">
+      <ColNames>user_id</ColNames>
+      <ObjectId>16893</ObjectId>
+      <StateNumber>956</StateNumber>
+      <RefKeyColPositions>1</RefKeyColPositions>
+      <RefTableId>16870</RefTableId>
+    </foreign-key>
+    <index id="298" parent="265" name="room_participants_pkey">
+      <ColNames>id</ColNames>
       <NameSurrogate>1</NameSurrogate>
-      <ObjectId>16485</ObjectId>
+      <ObjectId>16860</ObjectId>
       <Primary>1</Primary>
-      <StateNumber>760</StateNumber>
+      <StateNumber>950</StateNumber>
       <Unique>1</Unique>
       <AccessMethodId>403</AccessMethodId>
     </index>
-    <key id="307" parent="266" name="users_pkey">
+    <key id="299" parent="265" name="room_participants_pkey">
       <NameSurrogate>1</NameSurrogate>
-      <ObjectId>16486</ObjectId>
+      <ObjectId>16861</ObjectId>
       <Primary>1</Primary>
-      <StateNumber>760</StateNumber>
-      <UnderlyingIndexId>16485</UnderlyingIndexId>
+      <StateNumber>950</StateNumber>
+      <UnderlyingIndexId>16860</UnderlyingIndexId>
+    </key>
+    <check id="300" parent="266" name="rooms_status_check">
+      <ColNames>status</ColNames>
+      <ObjectId>16865</ObjectId>
+      <Predicate>(status)::text = ANY ((ARRAY[&apos;ACTIVE&apos;::character varying, &apos;INACTIVE&apos;::character varying, &apos;DELETED&apos;::character varying])::text[])</Predicate>
+      <StateNumber>951</StateNumber>
+    </check>
+    <column id="301" parent="266" name="uuid">
+      <NotNull>1</NotNull>
+      <Position>1</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>uuid|0s</StoredType>
+      <TypeId>2950</TypeId>
+    </column>
+    <column id="302" parent="266" name="allow_guests">
+      <Position>2</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>boolean|0s</StoredType>
+      <TypeId>16</TypeId>
+    </column>
+    <column id="303" parent="266" name="created_at">
+      <Position>3</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>timestamp(6) with time zone|0s</StoredType>
+      <TypeId>1184</TypeId>
+    </column>
+    <column id="304" parent="266" name="description">
+      <Position>4</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>varchar(255)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <column id="305" parent="266" name="invite_link">
+      <Position>5</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>varchar(255)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <column id="306" parent="266" name="is_public">
+      <NotNull>1</NotNull>
+      <Position>6</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>boolean|0s</StoredType>
+      <TypeId>16</TypeId>
+    </column>
+    <column id="307" parent="266" name="max_participants">
+      <NotNull>1</NotNull>
+      <Position>7</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>integer|0s</StoredType>
+      <TypeId>23</TypeId>
+    </column>
+    <column id="308" parent="266" name="owner_uuid">
+      <Position>8</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>uuid|0s</StoredType>
+      <TypeId>2950</TypeId>
+    </column>
+    <column id="309" parent="266" name="status">
+      <Position>9</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>varchar(255)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <column id="310" parent="266" name="title">
+      <Position>10</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>varchar(255)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <column id="311" parent="266" name="updated_at">
+      <Position>11</Position>
+      <StateNumber>951</StateNumber>
+      <StoredType>timestamp(6) with time zone|0s</StoredType>
+      <TypeId>1184</TypeId>
+    </column>
+    <index id="312" parent="266" name="rooms_pkey">
+      <ColNames>uuid</ColNames>
+      <NameSurrogate>1</NameSurrogate>
+      <ObjectId>16868</ObjectId>
+      <Primary>1</Primary>
+      <StateNumber>951</StateNumber>
+      <Unique>1</Unique>
+      <AccessMethodId>403</AccessMethodId>
+    </index>
+    <key id="313" parent="266" name="rooms_pkey">
+      <NameSurrogate>1</NameSurrogate>
+      <ObjectId>16869</ObjectId>
+      <Primary>1</Primary>
+      <StateNumber>951</StateNumber>
+      <UnderlyingIndexId>16868</UnderlyingIndexId>
+    </key>
+    <check id="314" parent="267" name="users_role_check">
+      <ColNames>role</ColNames>
+      <ObjectId>16873</ObjectId>
+      <Predicate>(role)::text = ANY ((ARRAY[&apos;ROLE_ADMIN&apos;::character varying, &apos;ROLE_USER&apos;::character varying, &apos;ROLE_GUEST&apos;::character varying])::text[])</Predicate>
+      <StateNumber>952</StateNumber>
+    </check>
+    <column id="315" parent="267" name="uuid">
+      <NotNull>1</NotNull>
+      <Position>1</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>uuid|0s</StoredType>
+      <TypeId>2950</TypeId>
+    </column>
+    <column id="316" parent="267" name="avatar_link">
+      <Position>2</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>varchar(255)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <column id="317" parent="267" name="created_at">
+      <Position>3</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>date|0s</StoredType>
+      <TypeId>1082</TypeId>
+    </column>
+    <column id="318" parent="267" name="email">
+      <NotNull>1</NotNull>
+      <Position>4</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>varchar(255)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <column id="319" parent="267" name="email_verified">
+      <NotNull>1</NotNull>
+      <Position>5</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>boolean|0s</StoredType>
+      <TypeId>16</TypeId>
+    </column>
+    <column id="320" parent="267" name="guest_expires_at">
+      <Position>6</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>timestamp(6) with time zone|0s</StoredType>
+      <TypeId>1184</TypeId>
+    </column>
+    <column id="321" parent="267" name="is_guest">
+      <NotNull>1</NotNull>
+      <Position>7</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>boolean|0s</StoredType>
+      <TypeId>16</TypeId>
+    </column>
+    <column id="322" parent="267" name="name">
+      <NotNull>1</NotNull>
+      <Position>8</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>varchar(100)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <column id="323" parent="267" name="password">
+      <NotNull>1</NotNull>
+      <Position>9</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>varchar(255)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <column id="324" parent="267" name="phone_number">
+      <Position>10</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>varchar(12)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <column id="325" parent="267" name="refresh_token">
+      <Position>11</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>text|0s</StoredType>
+      <TypeId>25</TypeId>
+    </column>
+    <column id="326" parent="267" name="role">
+      <NotNull>1</NotNull>
+      <Position>12</Position>
+      <StateNumber>952</StateNumber>
+      <StoredType>varchar(20)|0s</StoredType>
+      <TypeId>1043</TypeId>
+    </column>
+    <index id="327" parent="267" name="users_pkey">
+      <ColNames>uuid</ColNames>
+      <NameSurrogate>1</NameSurrogate>
+      <ObjectId>16876</ObjectId>
+      <Primary>1</Primary>
+      <StateNumber>952</StateNumber>
+      <Unique>1</Unique>
+      <AccessMethodId>403</AccessMethodId>
+    </index>
+    <key id="328" parent="267" name="users_pkey">
+      <NameSurrogate>1</NameSurrogate>
+      <ObjectId>16877</ObjectId>
+      <Primary>1</Primary>
+      <StateNumber>952</StateNumber>
+      <UnderlyingIndexId>16876</UnderlyingIndexId>
     </key>
   </database-model>
 </dataSource>
