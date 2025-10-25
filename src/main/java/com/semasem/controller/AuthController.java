@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +32,7 @@ public class AuthController {
 
     @Operation(
             summary = "Регистрация пользователя",
-            description = "Создает нового пользователя и отправляет email для верификации."
+            description = "Создает нового пользователя."
     )
     @SecurityRequirements
     @PostMapping("/register")
@@ -45,50 +46,49 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Верификация Email",
-            description = "Верифицирует email пользователя при введении сгенерированного кода с почты."
-    )
-    @SecurityRequirements
-    @GetMapping("/verify-email")
-    public ResponseEntity<APIResponse<VerifyEmailResponse>> verifyEmailUser(@RequestParam String code) {
-
-        VerifyEmailResponse response = authService.verifyEmail(code);
-
-        log.info("Verify-Email response: {}", response);
-        return ResponseEntity.ok().body(APIResponse.success("The user is verified!", response));
-    }
-
-    @Operation(
             summary = "Вход в аккаунт",
-            description = "Аутентифицирует пользователя и возвращает JWT-токен для доступа к защищенным ресурсам."
+            description = "Аутентифицирует пользователя и возвращает access token."
     )
     @SecurityRequirements
     @PostMapping("/login")
-    public ResponseEntity<APIResponse<LoginResponse>> loginUser(@RequestBody LoginRequest request) {
+    public ResponseEntity<APIResponse<LoginResponse>> loginUser(@RequestBody LoginRequest request, HttpServletResponse response) {
         log.debug("Login request: {}", request);
 
-        LoginResponse response = authService.loginUser(request);
+        LoginResponse loginResponse = authService.loginUser(request, response);
 
-        log.info("Login response: {}", response);
-        return ResponseEntity.ok().body(APIResponse.success("Success login!", response));
+        log.info("Login response: {}", loginResponse);
+        return ResponseEntity.ok().body(APIResponse.success("Success login!", loginResponse));
     }
 
     @Operation(
             summary = "Выход из системы",
-            description = "Завершает сеанс пользователя и инвалидирует JWT-токен."
+            description = "Завершает сеанс пользователя и очищает refresh token."
     )
     @PostMapping("/logout")
-    public ResponseEntity<APIResponse<Void>> logoutUser(HttpServletRequest servletRequest) {
+    public ResponseEntity<APIResponse<Void>> logoutUser(HttpServletRequest request, HttpServletResponse response) {
 
-        authService.logoutUser(servletRequest);
+        authService.logoutUser(request, response);
 
         log.info("Logged out successfully!");
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(APIResponse.success("Logged out successfully!"));
     }
 
     @Operation(
+            summary = "Обновление access token",
+            description = "Обновляет access token с помощью refresh token из куки."
+    )
+    @PostMapping("/refresh")
+    public ResponseEntity<APIResponse<RefreshTokenResponse>> refreshTokenForUser(HttpServletRequest request, HttpServletResponse response) {
+
+        RefreshTokenResponse refreshResponse = authService.refreshTokenForUser(request, response);
+
+        log.info("Refresh response: {}", refreshResponse);
+        return ResponseEntity.ok().body(APIResponse.success("New access token", refreshResponse));
+    }
+
+    @Operation(
             summary = "Запрос восстановления пароля",
-            description = "Инициирует процесс восстановления пароля, отправляя ссылку для сброса на email пользователя."
+            description = "Инициирует процесс восстановления пароля."
     )
     @SecurityRequirements
     @PostMapping("/recovery-password")
@@ -104,7 +104,7 @@ public class AuthController {
 
     @Operation(
             summary = "Сброс пароля",
-            description = "Сбрасывает пароль пользователя по полученной ссылке восстановления."
+            description = "Сбрасывает пароль пользователя по коду восстановления."
     )
     @SecurityRequirements
     @GetMapping("/reset-password")
@@ -129,18 +129,5 @@ public class AuthController {
 
         log.info("New-Password response: {}", response);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(APIResponse.success("New password successfully!"));
-    }
-
-    @Operation(
-            summary = "Создание рефреш токена",
-            description = "Устанавливает новый пароль для аутентифицированного пользователя."
-    )
-    @PostMapping("/refresh")
-    public ResponseEntity<APIResponse<RefreshTokenResponse>> refreshTokenForUser(HttpServletRequest servletRequest) {
-
-        RefreshTokenResponse response = authService.refreshTokenForUser(servletRequest);
-
-        log.info("Refresh response: {}", response);
-        return ResponseEntity.ok().body(APIResponse.success("New refresh token", response));
     }
 }

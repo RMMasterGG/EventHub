@@ -8,11 +8,11 @@ import com.semasem.dto.request.*;
 import com.semasem.dto.response.*;
 import com.semasem.repository.UserRepository;
 import com.semasem.repository.entity.User;
-import com.semasem.service.security.EmailCodeService;
-import com.semasem.service.security.EmailService;
 import com.semasem.service.security.JwtService;
 import com.semasem.service.security.PasswordEncoder;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,8 +32,6 @@ public class AuthService {
     private final UserMapper userMapper;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
-    private final EmailService emailService;
-    private final EmailCodeService emailCodeService;
 
     public RegisterResponse registerUser(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -42,51 +40,14 @@ public class AuthService {
 
         User user = userMapper.toEntity(request);
         user.setPassword(passwordEncoder.encryptPassword(user.getPassword()));
+        user.setEmailVerified(true);
         User savedUser = userRepository.save(user);
-
-        String code = emailCodeService.generateCode(6);
-        emailCodeService.saveCode(savedUser.getEmail(), code, 10);
-
-        String template = emailService.processTemplate("confirmation.html", code);
-        emailService.sendEmail(template, savedUser.getEmail());
 
         return new RegisterResponse(savedUser.getName(), savedUser.getEmail(), savedUser.getRole());
     }
 
     @Transactional
-    public VerifyEmailResponse verifyEmail(String code) {
-        String email = emailCodeService.getEmailByCode(code)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_VERIFICATION_CODE, "Код не найден!"));
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        if (user.isEmailVerified()) {
-            throw new CustomException(ErrorCode.ALREADY_VERIFIED, "Пользователь уже верифицирован!");
-        }
-
-        if (!emailCodeService.validCode(email, code)) {
-            throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE, "Неверный код верификации");
-        }
-
-        String refreshToken = jwtService.generateToken(user, TokenType.REFRESH_TOKEN);
-        String accessToken = jwtService.generateToken(user, TokenType.ACCESS_TOKEN);
-
-        user.setRefreshToken(refreshToken);
-        user.setEmailVerified(true);
-        userRepository.save(user);
-
-        return new VerifyEmailResponse(
-                refreshToken,
-                accessToken,
-                user.getName(),
-                user.getEmail(),
-                user.getRole()
-        );
-    }
-
-    @Transactional
-    public LoginResponse loginUser(LoginRequest request) {
+    public LoginResponse loginUser(LoginRequest request, HttpServletResponse response) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS, "Неверный email или пароль"));
 
@@ -94,18 +55,20 @@ public class AuthService {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS, "Неверный email или пароль");
         }
 
-        if (!user.isEmailVerified()) {
-            throw new CustomException(ErrorCode.EMAIL_NOT_VERIFIED, "Email не верифицирован");
-        }
-
-        String refreshToken = jwtService.generateToken(user, TokenType.REFRESH_TOKEN);
         String accessToken = jwtService.generateToken(user, TokenType.ACCESS_TOKEN);
+        String refreshToken = jwtService.generateToken(user, TokenType.REFRESH_TOKEN);
 
         user.setRefreshToken(refreshToken);
         userRepository.save(user);
 
+        Cookie refreshTokenCookie = new Cookie("refreshToken", refreshToken);
+        refreshTokenCookie.setHttpOnly(true);
+        refreshTokenCookie.setSecure(true);
+        refreshTokenCookie.setPath("/");
+        refreshTokenCookie.setMaxAge(7 * 24 * 60 * 60);
+        response.addCookie(refreshTokenCookie);
+
         return new LoginResponse(
-                refreshToken,
                 accessToken,
                 user.getName(),
                 user.getEmail(),
@@ -114,24 +77,80 @@ public class AuthService {
     }
 
     @Transactional
-    public void logoutUser(HttpServletRequest servletRequest) {
-        String header = servletRequest.getHeader("Authorization");
+    public void logoutUser(HttpServletRequest request, HttpServletResponse response) {
+        Cookie refreshTokenCookie = new Cookie("refreshToken", null);
+        refreshTokenCookie.setHttpOnly(true);
+        refreshTokenCookie.setSecure(true);
+        refreshTokenCookie.setPath("/");
+        refreshTokenCookie.setMaxAge(0);
+        response.addCookie(refreshTokenCookie);
 
-        if (header == null || !header.startsWith("Bearer ")) {
-            throw new CustomException(ErrorCode.TOKEN_NOT_FOUND, "Токен не найден");
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("refreshToken".equals(cookie.getName())) {
+                    String refreshToken = cookie.getValue();
+                    String email = jwtService.extractEmail(refreshToken);
+                    User user = userRepository.findByEmail(email).orElse(null);
+                    if (user != null) {
+                        user.setRefreshToken(null);
+                        userRepository.save(user);
+                    }
+                    break;
+                }
+            }
         }
 
-        String token = header.substring(7);
+        log.info("User logged out successfully");
+    }
 
-        String email = jwtService.extractEmail(token);
+    @Transactional
+    public RefreshTokenResponse refreshTokenForUser(HttpServletRequest request, HttpServletResponse response) {
+        Cookie[] cookies = request.getCookies();
+        String refreshToken = null;
+
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("refreshToken".equals(cookie.getName())) {
+                    refreshToken = cookie.getValue();
+                    break;
+                }
+            }
+        }
+
+        if (refreshToken == null) {
+            throw new CustomException(ErrorCode.TOKEN_NOT_FOUND, "Refresh token not found");
+        }
+
+        if (!jwtService.isTokenValid(refreshToken, TokenType.REFRESH_TOKEN)) {
+            throw new CustomException(ErrorCode.INVALID_TOKEN, "Invalid refresh token");
+        }
+
+        String email = jwtService.extractEmail(refreshToken);
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        user.setRefreshToken(null);
+        if (!refreshToken.equals(user.getRefreshToken())) {
+            user.setRefreshToken(null);
+            userRepository.save(user);
+            throw new CustomException(ErrorCode.TOKEN_COMPROMISED, "Token compromised");
+        }
+
+        String newAccessToken = jwtService.generateToken(user, TokenType.ACCESS_TOKEN);
+        String newRefreshToken = jwtService.generateToken(user, TokenType.REFRESH_TOKEN);
+
+        user.setRefreshToken(newRefreshToken);
         userRepository.save(user);
 
-        // Логика добавления токена в чёрный список
-        log.info("User logged out: {}", email);
+        Cookie refreshTokenCookie = new Cookie("refreshToken", newRefreshToken);
+        refreshTokenCookie.setHttpOnly(true);
+        refreshTokenCookie.setSecure(true);
+        refreshTokenCookie.setPath("/");
+        refreshTokenCookie.setMaxAge(7 * 24 * 60 * 60);
+        response.addCookie(refreshTokenCookie);
+
+        log.info("Tokens refreshed for user: {}", email);
+        return new RefreshTokenResponse(newAccessToken);
     }
 
     public RecoveryPasswordResponse recoveryPassword(RecoveryPasswordRequest request, HttpServletRequest servletRequest) {
@@ -140,19 +159,16 @@ public class AuthService {
 
         if (!userRepository.existsByEmail(email)) {
             log.warn("Password recovery attempt for non-existing email: {}", email);
-            return new RecoveryPasswordResponse(); // Всегда возвращаем успех для безопасности
+            return new RecoveryPasswordResponse();
         }
 
-        String token = emailCodeService.generateCode(8);
-        emailCodeService.saveCode(email, token, 15);
+        String token = java.util.UUID.randomUUID().toString().substring(0, 8);
+        // Здесь должна быть логика сохранения кода восстановления
 
         Map<String, String> variables = new HashMap<>();
         variables.put("token", token);
         variables.put("ip_address", ipAddress);
         variables.put("time", String.valueOf(LocalDate.now()));
-
-        String template = emailService.processTemplate("recovery.html", variables);
-        emailService.sendEmail(template, email);
 
         log.info("Password recovery code sent to: {}", email);
         return new RecoveryPasswordResponse();
@@ -160,15 +176,11 @@ public class AuthService {
 
     @Transactional
     public ResetPasswordResponse resetPassword(ResetPasswordRequest request, String code) {
-        String email = emailCodeService.getEmailByCode(code)
-                .orElseThrow(() -> new CustomException(ErrorCode.INVALID_VERIFICATION_CODE, "Код не найден!"));
+        // Здесь должна быть логика проверки кода восстановления
+        String email = "user@example.com"; // Заглушка
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        if (!emailCodeService.validCode(email, code)) {
-            throw new CustomException(ErrorCode.INVALID_VERIFICATION_CODE, "Неверный код восстановления");
-        }
 
         if (passwordEncoder.checkPassword(request.getNewPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS, "Новый пароль должен отличаться от старого");
@@ -199,57 +211,19 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        // Проверяем текущий пароль
         if (!passwordEncoder.checkPassword(request.getCurrentPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS, "Неверный текущий пароль");
         }
 
-        // Проверяем, что новый пароль отличается от старого
         if (passwordEncoder.checkPassword(request.getNewPassword(), user.getPassword())) {
             throw new CustomException(ErrorCode.INVALID_CREDENTIALS, "Новый пароль должен отличаться от текущего");
         }
 
-        // Устанавливаем новый пароль
         user.setPassword(passwordEncoder.encryptPassword(request.getNewPassword()));
         userRepository.save(user);
 
         log.info("Password changed successfully for user: {}", email);
         return new NewPasswordResponse();
-    }
-
-    @Transactional
-    public RefreshTokenResponse refreshTokenForUser(HttpServletRequest servletRequest) {
-        String header = servletRequest.getHeader("Authorization");
-
-        if (header == null || !header.startsWith("Bearer ")) {
-            throw new CustomException(ErrorCode.TOKEN_NOT_FOUND, "Токен не найден");
-        }
-
-        String refreshToken = header.substring(7);
-
-        if (!jwtService.isTokenValid(refreshToken, TokenType.REFRESH_TOKEN)) {
-            throw new CustomException(ErrorCode.INVALID_TOKEN, "Невалидный refresh token");
-        }
-
-        String email = jwtService.extractEmail(refreshToken);
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        if (!refreshToken.equals(user.getRefreshToken())) {
-            // Токен скомпрометирован - очищаем
-            user.setRefreshToken(null);
-            userRepository.save(user);
-            throw new CustomException(ErrorCode.TOKEN_COMPROMISED, "Токен скомпрометирован");
-        }
-
-        String newAccessToken = jwtService.generateToken(user, TokenType.ACCESS_TOKEN);
-        String newRefreshToken = jwtService.generateToken(user, TokenType.REFRESH_TOKEN);
-
-        user.setRefreshToken(newRefreshToken);
-        userRepository.save(user);
-
-        log.info("Tokens refreshed for user: {}", email);
-        return new RefreshTokenResponse(newAccessToken, newRefreshToken);
     }
 
     private String getClientIp(HttpServletRequest request) {

@@ -31,6 +31,7 @@ public class UserService {
         }
 
         return new UserGetResponse(
+                user.getUuid().toString(),
                 user.getName(),
                 user.getEmail(),
                 user.getRole()
@@ -48,6 +49,7 @@ public class UserService {
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND, "Пользователь не найден"));
 
         return new UserProfileResponse(
+                user.getUuid().toString(),
                 user.getAvatarLink(),
                 user.getName(),
                 user.getEmail(),
