@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Подтверждение email</title>
+</head>
+<body style="margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;">
+    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tbody>
+            <tr>
+                <td align="center" valign="top">
+                    <table cellpadding="0" cellspacing="0" border="0" width="600" style="max-width: 600px;
+            margin: 0 auto;">
+                        <tbody>
+
+                            <!-- Header -->
+                            <tr>
+                                <td style="background-color: #35d8e7;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;">
+                                    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                        <tbody>
+                                            <tr>
+                                                <td align="center">
+                                                    <table>
+                                                        <tr>
+                                                            <td align="center" style="color: #ffffff; font-weight: bold; margin: 0; background-color: rgb(255 255 255 / 0.2); border-radius: 50%; height: 75px; width: 75px;">
+                                                                <img src="https://lh3.googleusercontent.com/rd-d/ALs6j_F1uxHUth4UoavT4fniMrtWYAVnt_60ETkrpfHS_9Xkh1NOSiYmWdhJb9edls6aMWLUhTHgYeTc6r-CPqJMYZj-Mbmuhwg1iwCwI2u2zhSuwXp5Xd-3QkyjGM5WSO_pOTMyvpRX3XbefOYUiWVBYOQ28EgyL1ikoiZ-c91cxcIGKLLFtpfO9fD-L_mQuu2jJfvRte5fJtOgB4yftrESKWmV5Y1sTcQZ63ZS6YnZPFFRtSpmWWrdl4l5p6Pf2MudeCr0O8NcbU1tirk6KD-hDPhRLJ01gxIGeFCZ3Jl9NyfqiapeTOz5AdgAoPPSIKEVyBRBXHXKtDOX2KnlT4RgBOuUXVVLr2l0syJ1v14CZPad4CmjjjSsIm8S79ahOETANvBDyoHIKYnYHvq74K6m9OY4qHpgyXcsUqRWAE2P2P2_aMz9ilZ9ErxcMlQiwRt5Va6_9ddUw8y6BwMGEUrCMjSxLb3mVk01TdXlTOQWvxREw-1jwZUfHXU-NQFPQ_N7kRIxeYISJXEggy3LCtuXkJkaToLS34txVNJXXwFQneDKITayPP59IRQpperDacWocTS_6UVZi3z5H8HEULqduIawUgjq378j6OBCj7kEVNCjzy8e6VvTYqymd7DhBmlffW-zxdsY4FEJKnnJ5wuBdGcrfEB5iXjsxMrLWrSY8gxYe9OTj0PAM3NAbUcTCV-CZcAjyaRaT77xc1WIFZLU4TSPiwW_oTcWc7lroPguSnI7v1F5W3iLMaVoH7KbLbPM0JdcFN1RCVNfWxrklc8-yv_Wn4gDonOk0T32k3kmJpVWj5NJQzSfuGYQoO58E28WvnSCFBtN0MnqZwJ76uwSS3kZpdZ9hvBj9Ci77JmiMMlqgj0IPMWD_etcgS3YSDRYeLaUmH6WUezqtwYg6tfQKKv1Ek4qEoNHg3445mb-R77C3v6lU_LBf49YfaGVQrR-sSJq3Ccd0Xdr9HvIz3TwJM-V7dd-cQajogyRfgxplunARePMY0RMOu2nTIQ5SQ=w1920-h919?auditContext=prefetch" alt="">
+                                                            </td>
+                                                        </tr>
+                                                    </table>
+                                                    <h1 style="color: #ffffff; font-size: 24px; font-weight: bold; margin: 0; margin-top: 10px;">AniMeTrack</h1>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            
+                            <!-- Main Content -->
+                             <tr>
+                                <td style="padding: 20px 0;">
+                                    <table>
+                                        <tbody>
+                                            <tr>
+                                                <td style="background-color: #ffffff;
+            border-radius: 15px;
+            padding: 40px 30px;
+            text-align: center;">
+                                                    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                                        <tbody>
+                                                            <tr>
+                                                                <td align="center">
+                                                                    <h2 style="font-size: 24px; font-weight: bold; color: #1f2937; margin-bottom: 20px;">
+                                                                        Уведомление
+                                                                    </h2>
+                                                                    
+                                                                    <div style="font-size: 36px; font-weight: bold; color: #258cf4; background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; letter-spacing: 8px;">
+                                                                        {{ content }}
+                                                                    </div>
+                                                                
+                                                                    <p style="font-size: 16px; color: #4b5563; line-height: 1.6; margin-bottom: 30px;">
+                                                                        Отписаться от рассылки можно если перейти в личный кабинет пользователя.<br><br>
+                                                                        Приятного использования,<br>
+                                                                        <strong>AniMeTrack</strong>
+                                                                    </p>
+                                                                    
+                                                                    <a href="http://127.0.0.1:8080/api/auth/verify-email?session_id={{ session_id }}&code={{ code }}&username={{ username }}" style="display: inline-block; background-color: #35d8e7; color: #ffffff !important; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin: 20px 0;">
+                                                                        Перейти на сайт
+                                                                    </a>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </td>
+                            </tr>
+                            
+                            <!-- Footer -->
+                            <tr>
+                                <td style="background-color: #efeff1;
+            border-radius: 15px;
+            padding: 30px;
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.5;">
+                                    <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                                        <tbody>
+                                            <tr>
+                                                <td align="center">
+                                                    <div style="margin-bottom: 15px;">
+                                                        Следите за новинками аниме и ведите с.
+                                                    </div>
+                                                    
+                                                    <div style="margin-bottom: 15px;">
+                                                        <strong>Телефон:</strong><br>
+                                                        support@animetrack.ru<br>
+                                                        8 (XXX) XXX - XX - XX<br>
+                                                        (круглосуточно)
+                                                    </div>
+                                                    
+                                                    <div style="margin: 15px 0;">
+                                                        <a href="#" style="color: #258cf4; text-decoration: none; margin: 0 10px;">Сайт</a>
+                                                        <a href="#" style="color: #258cf4; text-decoration: none; margin: 0 10px;">Telegram</a>
+                                                        <a href="#" style="color: #258cf4; text-decoration: none; margin: 0 10px;">Discord</a>
+                                                    </div>
+                                                    
+                                                    <div style="font-size: 11px; color: #9ca3af; margin-top: 20px;">
+                                                        Реклама. ООО «AniMeTrack», г. Ростов-на-Дону. Вы получили это письмо, потому что подписались на уведомления 
+                                                        о подтверждении через e-mail: www.«AniMeTrack.ru
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>
