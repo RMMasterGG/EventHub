@@ -65,7 +65,7 @@ public class WebSocketChatController extends TextWebSocketHandler {
                     .orElseThrow(() -> new CustomException(ErrorCode.VALIDATION_ERROR));
 
             Map<String, Object> roomInfo = new HashMap<>();
-            roomInfo.put("type", "room_info");
+            roomInfo.put("type", "ROOM_INFO");
             roomInfo.put("roomId", roomId);
             roomInfo.put("roomName", room.getTitle());
             roomInfo.put("roomDescription", room.getDescription());
@@ -110,11 +110,21 @@ public class WebSocketChatController extends TextWebSocketHandler {
                     message.getPayload(),
                     new TypeReference<Map<String, Object>>() {}
             );
-            WebSocketAction type = (WebSocketAction) payload.get("type");
 
-            if (type == null) {
+            // Исправление: получаем тип как строку и конвертируем в enum
+            String typeString = (String) payload.get("type");
+            if (typeString == null) {
                 log.warn("Message without type from user {}", userId);
                 sendErrorSafe(session, "Message type is required");
+                return;
+            }
+
+            WebSocketAction type;
+            try {
+                type = WebSocketAction.valueOf(typeString);
+            } catch (IllegalArgumentException e) {
+                log.warn("Unknown message type: {} from user {}", typeString, userId);
+                sendErrorSafe(session, "Unknown message type: " + typeString);
                 return;
             }
 
@@ -124,30 +134,30 @@ public class WebSocketChatController extends TextWebSocketHandler {
                     .orElseThrow(() -> new CustomException(ErrorCode.INVALID_CREDENTIALS));
 
             switch (type) {
-                case WebSocketAction.SEND_MESSAGE:
+                case SEND_MESSAGE:
                     handleChatMessage(roomId, user, payload);
                     break;
-                case WebSocketAction.EDIT_MESSAGE:
+                case EDIT_MESSAGE:
                     handleEditMessage(roomId, userId, payload);
                     break;
-                case WebSocketAction.DELETE_MESSAGE:
+                case DELETE_MESSAGE:
                     handleDeleteMessage(roomId, userId, payload);
                     break;
-                case WebSocketAction.TYPING_START:
+                case TYPING_START:
                     handleTypingEvent(roomId, userId, true);
                     break;
-                case WebSocketAction.TYPING_STOP:
+                case TYPING_STOP:
                     handleTypingEvent(roomId, userId, false);
                     break;
-                case WebSocketAction.READ_RECEIPT:
+                case READ_RECEIPT:
                     handleReadReceipt(roomId, userId, payload);
                     break;
-                case WebSocketAction.KICK_USER:
+                case KICK_USER:
                     handleKickUser(roomId, user, payload);
                     break;
                 default:
-                    log.warn("Unknown message type: {} from user {}", type, userId);
-                    sendErrorSafe(session, "Unknown message type: " + type);
+                    log.warn("Unhandled message type: {} from user {}", type, userId);
+                    sendErrorSafe(session, "Unhandled message type: " + type);
             }
 
         } catch (Exception e) {
@@ -191,13 +201,13 @@ public class WebSocketChatController extends TextWebSocketHandler {
             ChatMessage savedMessage = chatMessageService.saveMessage(chatMessage);
 
             Map<String, Object> messageData = new HashMap<>();
+            messageData.put("type", "SEND_MESSAGE");
             messageData.put("messageId", savedMessage.getUuid().toString());
             messageData.put("tempId", tempId);
             messageData.put("content", savedMessage.getContent());
             messageData.put("senderId", user.getUuid().toString());
             messageData.put("senderName", user.getName());
             messageData.put("timestamp", savedMessage.getTimestamp().toEpochMilli());
-            messageData.put("type", WebSocketAction.SEND_MESSAGE);
             messageData.put("edited", savedMessage.isEdited());
             messageData.put("replyTo", savedMessage.getReplyTo());
 
@@ -254,13 +264,14 @@ public class WebSocketChatController extends TextWebSocketHandler {
             ChatMessage updatedMessage = chatMessageService.saveMessage(message);
 
             Map<String, Object> updateData = new HashMap<>();
+            updateData.put("type", "MESSAGE_EDITED");
             updateData.put("messageId", updatedMessage.getUuid().toString());
             updateData.put("content", updatedMessage.getContent());
             updateData.put("edited", true);
             updateData.put("editedAt", updatedMessage.getEditedAt().toEpochMilli());
             updateData.put("editedBy", userId);
 
-            broadcastToRoom(roomId, createMessage(WebSocketAction.MESSAGE_EDITED, updateData));
+            broadcastToRoom(roomId, updateData);
 
             log.info("Message {} edited by user {}", messageId, userId);
 
@@ -297,10 +308,11 @@ public class WebSocketChatController extends TextWebSocketHandler {
             chatMessageService.deleteMessage(UUID.fromString(messageId));
 
             Map<String, Object> deleteData = new HashMap<>();
+            deleteData.put("type", "MESSAGE_DELETED");
             deleteData.put("messageId", messageId);
             deleteData.put("deletedBy", userId);
 
-            broadcastToRoom(roomId, createMessage(WebSocketAction.MESSAGE_DELETED, deleteData));
+            broadcastToRoom(roomId, deleteData);
 
             log.info("Message {} deleted by user {}", messageId, userId);
 
@@ -347,9 +359,10 @@ public class WebSocketChatController extends TextWebSocketHandler {
 
     private void handleTypingEvent(String roomId, String userId, boolean isTyping) {
         Map<String, Object> typingData = new HashMap<>();
+        typingData.put("type", "USER_TYPING");
         typingData.put("userId", userId);
         typingData.put("isTyping", isTyping);
-        broadcastToRoomExceptUser(roomId, userId, createMessage(WebSocketAction.USER_TYPING, typingData));
+        broadcastToRoomExceptUser(roomId, userId, typingData);
     }
 
     private void handleReadReceipt(String roomId, String userId, Map<String, Object> payload) {
@@ -357,17 +370,17 @@ public class WebSocketChatController extends TextWebSocketHandler {
         if (messageId != null) {
             chatMessageService.markMessageAsRead(UUID.fromString(messageId), userId);
             Map<String, Object> receiptData = new HashMap<>();
+            receiptData.put("type", "MESSAGE_READ");
             receiptData.put("messageId", messageId);
             receiptData.put("readBy", userId);
             receiptData.put("readAt", System.currentTimeMillis());
-            broadcastToRoom(roomId, createMessage(WebSocketAction.MESSAGE_READ, receiptData));
+            broadcastToRoom(roomId, receiptData);
         }
     }
 
     private void handleKickUser(String roomID, User user, Map<String, Object> payload) {
         String userID = user.getUuid().toString();
         try {
-
             String targetUserId = (String) payload.get("targetUserId");
 
             if (targetUserId == null) {
@@ -389,7 +402,7 @@ public class WebSocketChatController extends TextWebSocketHandler {
 
             if (targetSession != null && targetSession.isOpen()) {
                 Map<String, Object> kickMessage = new HashMap<>();
-                kickMessage.put("type", WebSocketAction.KICK_USER);
+                kickMessage.put("type", "KICK_USER");
                 kickMessage.put("reason", "You have been kicked from the room");
                 kickMessage.put("kickedBy", userID);
                 kickMessage.put("timestamp", System.currentTimeMillis());
@@ -519,10 +532,11 @@ public class WebSocketChatController extends TextWebSocketHandler {
             }
 
             Map<String, Object> historyData = new HashMap<>();
+            historyData.put("type", "CHAT_HISTORY");
             historyData.put("messages", messageList);
             historyData.put("roomId", roomId.toString());
 
-            sendToUserSafe(userId, createMessage(WebSocketAction.CHAT_HISTORY, historyData));
+            sendToUserSafe(userId, historyData);
 
         } catch (Exception e) {
             log.error("Error sending chat history to user {}", userId, e);
@@ -592,8 +606,10 @@ public class WebSocketChatController extends TextWebSocketHandler {
     private void sendErrorSafe(WebSocketSession session, String error) {
         if (session != null && session.isOpen()) {
             try {
-                Map<String, Object> errorMessage = createMessage(WebSocketAction.ERROR,
-                        Map.of("message", error, "timestamp", System.currentTimeMillis()));
+                Map<String, Object> errorMessage = new HashMap<>();
+                errorMessage.put("type", "ERROR");
+                errorMessage.put("message", error);
+                errorMessage.put("timestamp", System.currentTimeMillis());
                 String jsonError = objectMapper.writeValueAsString(errorMessage);
                 session.sendMessage(new TextMessage(jsonError));
             } catch (Exception e) {
@@ -602,19 +618,13 @@ public class WebSocketChatController extends TextWebSocketHandler {
         }
     }
 
-    private Map<String, Object> createMessage(WebSocketAction type, Map<String, Object> data) {
-        Map<String, Object> message = new HashMap<>(data);
-        message.put("type", type);
-        message.put("timestamp", System.currentTimeMillis());
-        return message;
-    }
-
     private Map<String, Object> createSystemMessage(String content, ParticipantStatus systemType) {
         Map<String, Object> messageData = new HashMap<>();
+        messageData.put("type", "SYSTEM_MESSAGE");
         messageData.put("content", content);
         messageData.put("systemType", systemType);
         messageData.put("timestamp", System.currentTimeMillis());
-        return createMessage(WebSocketAction.SYSTEM_MESSAGE, messageData);
+        return messageData;
     }
 
     private Map<String, String> extractParameters(WebSocketSession session) {
