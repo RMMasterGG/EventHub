@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import java.security.Principal;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -25,7 +24,6 @@ public class WebRTCService {
     private final RoomRepository roomRepository;
     private final UserRepository userRepository;
     private final RoomParticipantRepository roomParticipantRepository;
-    private final MediaStateService mediaStateService;
 
     public void validateRoomAccess(UUID roomId, Principal principal) {
         if (principal == null || principal.getName() == null) {
@@ -54,12 +52,10 @@ public class WebRTCService {
         Room room = roomRepository.findByUuid(roomId)
                 .orElseThrow(() -> new CustomException(ErrorCode.ROOM_NOT_FOUND, "Room not found"));
 
-        // Для гостей проверяем срок действия
         if (user.isGuest() && user.getGuestExpiresAt().isBefore(Instant.now())) {
             throw new CustomException(ErrorCode.GUEST_EXPIRED, "Guest access has expired");
         }
 
-        // Проверяем активность комнаты
         if (room.getStatus() != RoomStatus.ACTIVE) {
             throw new CustomException(ErrorCode.ROOM_NOT_ACTIVE, "Room is not active");
         }
@@ -82,19 +78,16 @@ public class WebRTCService {
             return true;
         }
 
-        // Публичная комната - доступ всем
         if (room.isPublic()) {
             return true;
         }
 
-        // Проверяем, является ли пользователь активным участником
         return roomParticipantRepository.findByRoomUuidAndUserUuid(room.getUuid(), user.getUuid())
                 .map(participant -> participant.isActive() &&
                         participant.getStatus() == ParticipantStatus.JOINED)
                 .orElse(false);
     }
 
-    // ✅ ВЫНЕС ОБНОВЛЕНИЕ АКТИВНОСТИ В ОТДЕЛЬНЫЙ МЕТОД
     private void updateParticipantActivity(UUID roomId, UUID userUuid) {
         roomParticipantRepository.findByRoomUuidAndUserUuid(roomId, userUuid)
                 .ifPresent(participant -> {
@@ -103,20 +96,12 @@ public class WebRTCService {
                 });
     }
 
-    public List<ParticipantInfo> getRoomParticipantsInfo(UUID roomId) {
+    public List<String> getRoomParticipantsEmails(UUID roomId) {
         List<RoomParticipant> activeParticipants = roomParticipantRepository
                 .findByRoomUuidAndStatus(roomId, ParticipantStatus.JOINED);
 
         return activeParticipants.stream()
-                .map(participant -> new ParticipantInfo(
-                        participant.getUser().getUuid(),
-                        participant.getUser().getName(),
-                        participant.getUser().getEmail(),
-                        participant.getRole(),
-                        participant.getUser().isGuest(),
-                        participant.getJoinedAt(),
-                        participant.getLastActiveAt()
-                ))
+                .map(participant -> participant.getUser().getEmail())
                 .collect(Collectors.toList());
     }
 
@@ -128,39 +113,4 @@ public class WebRTCService {
                 .map(participant -> participant.getUser().getUuid())
                 .collect(Collectors.toList());
     }
-
-    // 🔥 ДОБАВЛЕНО: Методы для работы с медиа-состояниями
-    public void updateParticipantMediaState(UUID roomId, UUID userId, Boolean audioEnabled, Boolean videoEnabled, Boolean screenSharing) {
-        // Сначала проверяем доступ к комнате
-        validateRoomAccess(roomId, () -> userId.toString());
-
-        // Обновляем состояние медиа
-        mediaStateService.updateMediaState(roomId, userId, audioEnabled, videoEnabled, screenSharing);
-
-        log.debug("Media state updated for user {} in room {}", userId, roomId);
-    }
-
-    public Map<UUID, MediaStateService.MediaState> getRoomMediaStates(UUID roomId) {
-        return mediaStateService.getAllMediaStates(roomId);
-    }
-
-    public void cleanupParticipantMediaState(UUID roomId, UUID userId) {
-        mediaStateService.removeMediaState(roomId, userId);
-    }
-
-    // 🔥 ОБНОВЛЕНО: Метод выхода участника - теперь очищаем и медиа-состояние
-    public void participantLeft(UUID roomId, UUID userId) {
-        cleanupParticipantMediaState(roomId, userId);
-
-        // Обновляем статус участника в БД
-        roomParticipantRepository.findByRoomUuidAndUserUuid(roomId, userId)
-                .ifPresent(participant -> {
-                    participant.setStatus(ParticipantStatus.LEFT);
-                    participant.setLeftAt(Instant.now());
-                    roomParticipantRepository.save(participant);
-                });
-
-        log.info("User {} left room {} and media state cleaned up", userId, roomId);
-    }
 }
-

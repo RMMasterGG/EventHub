@@ -34,10 +34,10 @@ public class JwtService {
     @Value("${jwt.access-expiration-time:900000}")
     private Long accessExpirationTime;
 
-    @Value("${jwt.guest-expiration-time:7200000}") // 2 часа
+    @Value("${jwt.guest-expiration-time:7200000}")
     private Long guestExpirationTime;
 
-    @Value("${jwt.direct-join-expiration-time:300000}") // 5 минут
+    @Value("${jwt.direct-join-expiration-time:300000}")
     private Long directJoinExpirationTime;
 
     private SecretKey getSigningKey() {
@@ -76,7 +76,6 @@ public class JwtService {
         }
     }
 
-    // ✅ ДОБАВЛЕНО: Метод для извлечения userId
     public String extractUserId(String token) {
         try {
             Claims claims = extractAllClaims(token);
@@ -87,7 +86,6 @@ public class JwtService {
         }
     }
 
-    // ✅ ДОБАВЛЕНО: Метод для извлечения userId с проверкой типа токена
     public String extractUserId(String token, TokenType expectedType) {
         try {
             if (!isTokenValid(token, expectedType)) {
@@ -100,7 +98,6 @@ public class JwtService {
         }
     }
 
-    // Новый метод для генерации guest токена
     public String generateGuestToken(String roomId, String guestId) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("type", "GUEST_TOKEN");
@@ -116,7 +113,6 @@ public class JwtService {
                 .compact();
     }
 
-    // Новый метод для валидации guest токена
     public boolean isGuestTokenValid(String token) {
         try {
             Claims claims = extractAllClaims(token);
@@ -128,7 +124,6 @@ public class JwtService {
         }
     }
 
-    // Метод для извлечения roomId из guest токена
     public String extractRoomIdFromGuestToken(String token) {
         try {
             Claims claims = extractAllClaims(token);
@@ -138,7 +133,6 @@ public class JwtService {
         }
     }
 
-    // Метод для извлечения guestId из guest токена
     public String extractGuestId(String token) {
         try {
             Claims claims = extractAllClaims(token);
@@ -210,7 +204,6 @@ public class JwtService {
         }
     }
 
-    // Остальные существующие методы без изменений
     public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
     }

@@ -163,7 +163,6 @@ public class AuthService {
         }
 
         String token = java.util.UUID.randomUUID().toString().substring(0, 8);
-        // Здесь должна быть логика сохранения кода восстановления
 
         Map<String, String> variables = new HashMap<>();
         variables.put("token", token);
@@ -176,7 +175,6 @@ public class AuthService {
 
     @Transactional
     public ResetPasswordResponse resetPassword(ResetPasswordRequest request, String code) {
-        // Здесь должна быть логика проверки кода восстановления
         String email = "user@example.com"; // Заглушка
 
         User user = userRepository.findByEmail(email)

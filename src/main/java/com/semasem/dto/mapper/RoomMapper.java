@@ -29,7 +29,6 @@ public class RoomMapper {
     }
 
     private String generateInviteCode() {
-        // Генерируем короткий код из 8 символов
         return UUID.randomUUID().toString().substring(0, 8);
     }
 }
