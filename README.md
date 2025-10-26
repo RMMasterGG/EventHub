@@ -16,7 +16,7 @@
 
 ## 📖 Обзор
 
-**VideoConnect** — это полнофункциональная платформа для организации видеовстреч с современным React-фронтендом и высокопроизводительным бэкендом на Java. Система предоставляет богатый REST API и WebSocket-эндпоинты для создания комнат, управления пользователями, потоковой передачи аудио и видео через WebRTC, а также обмена сообщениями в реальном времени.
+**EventHub** — это полнофункциональная платформа для организации видеовстреч с современным React-фронтендом и высокопроизводительным бэкендом на Java. Система предоставляет богатый REST API и WebSocket-эндпоинты для создания комнат, управления пользователями, потоковой передачи аудио и видео через WebRTC, а также обмена сообщениями в реальном времени.
 
 Идеально подходит для бизнес-встреч, удаленного обучения и неформального общения.
 
@@ -124,14 +124,14 @@
 ### Backend
 ```bash
 # Клонирование репозитория
-git clone https://github.com/your-username/videoconnect-backend.git
+git clone https://github.com/RMMasterGG/EventHub.git
 cd videoconnect-backend
 
 # Сборка проекта
 mvn clean package
 
 # Запуск приложения
-java -jar target/videoconnect-0.1.0.jar
+java -jar target/EventHub-0.1.0.jar
 ```
 ### Frontend
 ```bash
@@ -151,13 +151,13 @@ npm run build
 
 1. Сервер PostgreSQL запущен
 
-2. Создана база данных `videoconnect_db`
+2. Создана база данных `EventHubDB`
 
 3. Настройки подключения указаны в `application.yml`:
 ```bash
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/videoconnect_db
+    url: jdbc:postgresql://localhost:5432/EventHubDB
     username: your_username
     password: your_password
 ```
