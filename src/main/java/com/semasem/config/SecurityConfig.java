@@ -48,14 +48,15 @@ public class SecurityConfig {
                                 "/api/auth/verify-email",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/error",
-                                "/api/rooms/**"
+                                "/error"
                         ).permitAll()
                         .requestMatchers("/h2-console/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/auth/logout", "/api/auth/new-password").authenticated()
                         .requestMatchers("/api/user/**").authenticated()
-//                        .requestMatchers("/api/rooms/**").authenticated()
+                        .requestMatchers("/api/rooms/**").authenticated()
+                        .requestMatchers("/api/ws/**").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .anyRequest().permitAll()
                 );
 
@@ -66,7 +67,11 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:5173",
+                "http://localhost:8000",
+                "http://127.0.0.1:8000"
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

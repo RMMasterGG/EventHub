@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @SuppressWarnings("unused")
 public class ChatMessage {
-    private String type; // "CHAT_MESSAGE"
+    private String type;
     private String roomId;
     private String sender;
     private String text;

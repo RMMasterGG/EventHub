@@ -25,8 +25,11 @@ public class RoomParticipant {
     private Room room;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id")
     private User user;
+
+    @Column(name = "guest_name")
+    private String guestName;
 
     @Column(name = "joined_at", nullable = false)
     private Instant joinedAt;
@@ -34,16 +37,13 @@ public class RoomParticipant {
     @Column(name = "left_at")
     private Instant leftAt;
 
-    @Column(name = "guest_name")
-    private String guestName;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ParticipantRole role;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ParticipantRole role; // HOST, PARTICIPANT, GUEST
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private ParticipantStatus status; // JOINED, LEFT, KICKED, BANNED
+    private ParticipantStatus status;
 
     @Column(name = "is_audio_enabled")
     private boolean isAudioEnabled;
@@ -55,14 +55,12 @@ public class RoomParticipant {
     private Instant lastActiveAt;
 
     @Column(name = "session_id")
-    private String sessionId; // WebSocket session ID
+    private String sessionId;
 
-    // Метод для проверки, активен ли участник
     public boolean isActive() {
         return status == ParticipantStatus.JOINED && leftAt == null;
     }
 
-    // Метод для отметки выхода
     public void markAsLeft() {
         this.status = ParticipantStatus.LEFT;
         this.leftAt = Instant.now();

@@ -1,12 +1,12 @@
 spring:
   application:
-    name: AniMeTrackAPI
+    name: EventHubAPI
 
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/EventHubDB
+    url: jdbc:postgresql://localhost:5432/AniMeTrackBD
     username: postgres
     password: 123123
     driver-class-name: org.postgresql.Driver

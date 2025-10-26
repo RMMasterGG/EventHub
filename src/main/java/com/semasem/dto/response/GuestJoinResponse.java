@@ -9,6 +9,6 @@ public class GuestJoinResponse {
     private String accessToken;
     private String refreshToken;
     private String guestName;
-    private String guestEmail; // временный email для гостя
+    private String guestEmail;
     private RoomResponse room;
 }

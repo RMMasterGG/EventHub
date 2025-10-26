@@ -19,7 +19,7 @@
 
                             <!-- Header -->
                             <tr>
-                                <td style="background-color: #35d8e7;
+                                <td style="background-color: #FF9640;
             border-radius: 15px;
             padding: 20px;
             text-align: center;">
@@ -34,7 +34,7 @@
                                                             </td>
                                                         </tr>
                                                     </table>
-                                                    <h1 style="color: #ffffff; font-size: 24px; font-weight: bold; margin: 0; margin-top: 10px;">AniMeTrack</h1>
+                                                    <h1 style="color: #ffffff; font-size: 24px; font-weight: bold; margin: 0; margin-top: 10px;">EventHub</h1>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -60,7 +60,7 @@
                                                                         Востановление пароля
                                                                     </h2>
                                                                     
-                                                                    <div style="font-size: 36px; font-weight: bold; color: #258cf4; background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; letter-spacing: 8px;">
+                                                                    <div style="font-size: 36px; font-weight: bold; color: #FF9640; background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; letter-spacing: 8px;">
                                                                         {{ token }}
                                                                     </div>
                                                                     
@@ -68,10 +68,10 @@
                                                                         Он действует 15 минут — если не успеете использовать, запросите новый.<br><br>
                                                                         Если вы не запрашивали сброс пароля, проигнорируйте это письмо. Ваш аккаунт остается в безопасности.<br><br>
                                                                         По вопросам безопасности обращайтесь в службу поддержки,<br>
-                                                                        <strong>AniMeTrack</strong>
+                                                                        <strong>EventHub</strong>
                                                                     </p>
                                                                     
-                                                                    <a href="http://127.0.0.1:8080/api/auth/reset-password?token={{ token }}" style="display: inline-block; background-color: #35d8e7; color: #ffffff !important; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin: 20px 0;">
+                                                                    <a href="http://127.0.0.1:8080/api/auth/reset-password?token={{ token }}" style="display: inline-block; background-color: #FF9640; color: #ffffff !important; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin: 20px 0;">
                                                                         Создать новый пароль
                                                                     </a>
                                                                     <a href="http://127.0.0.1:8080/api/auth/info" style="display: inline-block; border: 1px solid #1d1d1d; background-color: #ffffff80; color: #1d1d1d !important; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: bold; margin: 20px 0;">
@@ -106,19 +106,19 @@
                                                     
                                                     <div style="margin-bottom: 15px;">
                                                         <strong>Служба безопасности:</strong><br>
-                                                        security@animetrack.ru<br>
+                                                        security@eventhub.ru<br>
                                                         8 (XXX) XXX - XX - XX<br>
                                                         (круглосуточно)
                                                     </div>
                                                     
                                                     <div style="margin: 15px 0;">
-                                                        <a href="#" style="color: #258cf4; text-decoration: none; margin: 0 10px;">Центр безопасности</a>
-                                                        <a href="#" style="color: #258cf4; text-decoration: none; margin: 0 10px;">FAQ</a>
-                                                        <a href="#" style="color: #258cf4; text-decoration: none; margin: 0 10px;">Поддержка</a>
+                                                        <a href="#" style="color: #FF9640; text-decoration: none; margin: 0 10px;">Центр безопасности</a>
+                                                        <a href="#" style="color: #FF9640; text-decoration: none; margin: 0 10px;">FAQ</a>
+                                                        <a href="#" style="color: #FF9640; text-decoration: none; margin: 0 10px;">Поддержка</a>
                                                     </div>
                                                     
                                                     <div style="font-size: 11px; color: #9ca3af; margin-top: 20px;">
-                                                        Автоматическое сообщение безопасности AniMeTrack. IP запроса: {{ ip_address }} • Время: {{ time }}
+                                                        Автоматическое сообщение безопасности EventHub. IP запроса: {{ ip_address }} • Время: {{ time }}
                                                     </div>
                                                 </td>
                                             </tr>

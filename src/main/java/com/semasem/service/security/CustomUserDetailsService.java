@@ -22,10 +22,9 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
-        // Используем заглушку для пароля, так как аутентификация через JWT
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),
-                "N/A", // заглушка для пароля
+                "N/A",
                 Collections.singletonList(new SimpleGrantedAuthority(user.getRole().name()))
         );
     }

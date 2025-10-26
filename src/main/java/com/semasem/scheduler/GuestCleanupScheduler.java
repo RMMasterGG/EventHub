@@ -11,7 +11,7 @@ public class GuestCleanupScheduler {
 
     private final GuestService guestService;
 
-    @Scheduled(cron = "0 0 2 * * ?") // Каждый день в 2:00
+    @Scheduled(cron = "0 0 2 * * ?")
     public void cleanupExpiredGuests() {
         guestService.cleanupExpiredGuests();
     }

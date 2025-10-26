@@ -22,6 +22,7 @@ public enum ErrorCode {
     NOT_JOINED("ROOM_005", "User not joined this room"),
     ROOM_NOT_ACTIVE("ROOM_006", "Room is not active"),
     INVALID_INVITE_LINK("ROOM_007", "Invalid invite link"),
+    HAVE_NOT_PERMISSION("ROOM_008", "У пользователя нет прав."),
 
     GUEST_ACCESS_DENIED("GUESS_001", "Guest access not allowed"),
     GUEST_EXPIRED("GUESS_002","Guest access has expired"),

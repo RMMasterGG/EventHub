@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class RoomMessage {
-    private String type; // "JOIN_ROOM", "LEAVE_ROOM"
+    private String type;
     private String roomId;
     private String username;
 }
